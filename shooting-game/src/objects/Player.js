@@ -1,0 +1,60 @@
+// Player.js: 플레이어 캐릭터. HP/HP바, WASD 이동 (전역 클래스)
+// 옵션: window.SELECTION.character, SELECTION.abilities 반영
+
+var PLAYER_CONFIG = {
+  normal: { speed: 200, color: 0x00ff00, maxHp: 5 },
+  fast:   { speed: 280, color: 0x00ccff, maxHp: 5 },
+  tank:   { speed: 150, color: 0xff8800, maxHp: 7 }
+};
+
+class Player {
+  constructor(scene, x, y, options) {
+    this.scene = scene;
+    var sel = options || (typeof window !== 'undefined' && window.SELECTION) || {};
+    var charKey = sel.character || 'normal';
+    var cfg = PLAYER_CONFIG[charKey] || PLAYER_CONFIG.normal;
+    this.speed = cfg.speed;
+    this.maxHp = cfg.maxHp;
+    this.hp = this.maxHp;
+
+    this.rect = scene.add.rectangle(x, y, 32, 32, cfg.color);
+    scene.physics.add.existing(this.rect);
+    this.body = this.rect.body;
+    this.body.setCollideWorldBounds(true);
+
+    this.hpBarWidth = 32;
+    this.hpBarHeight = 5;
+    this.hpBarBg = scene.add.rectangle(x, y - 24, this.hpBarWidth, this.hpBarHeight, 0x333333);
+    this.hpBarFg = scene.add.rectangle(x, y - 24, this.hpBarWidth, this.hpBarHeight, 0x00ff00);
+    this.hpBarBg.setOrigin(0.5, 0.5);
+    this.hpBarFg.setOrigin(0, 0.5);
+  }
+
+  takeDamage(amount) {
+    this.hp = this.hp - amount;
+    if (this.hp < 0) this.hp = 0;
+    if (this.hp <= 0) return true;
+    return false;
+  }
+
+  update(keys) {
+    var vx = 0, vy = 0;
+    if (keys.left.isDown)  vx = -this.speed;
+    if (keys.right.isDown) vx = this.speed;
+    if (keys.up.isDown)    vy = -this.speed;
+    if (keys.down.isDown)  vy = this.speed;
+    this.body.setVelocity(vx, vy);
+
+    var ex = this.rect.x, ey = this.rect.y;
+    this.hpBarBg.setPosition(ex, ey - 24);
+    this.hpBarFg.setPosition(ex - this.hpBarWidth / 2, ey - 24);
+    this.hpBarFg.setSize(this.hpBarWidth * (this.hp / this.maxHp), this.hpBarHeight);
+    this.hpBarFg.setOrigin(0, 0.5);
+  }
+
+  destroy() {
+    this.rect.destroy();
+    this.hpBarBg.destroy();
+    this.hpBarFg.destroy();
+  }
+}

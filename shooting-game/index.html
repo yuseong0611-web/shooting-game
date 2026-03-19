@@ -1,0 +1,33 @@
+<!-- index.html: 게임 진입점. 파일을 순서대로 불러옴 -->
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>탑다운 슈팅게임</title>
+    <style>
+      body {
+        margin: 0;
+        background: #000;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 1. Phaser 라이브러리 -->
+    <script src="./libs/phaser.min.js"></script>
+    <!-- 2. 게임 오브젝트 -->
+    <script src="./src/objects/Player.js"></script>
+    <script src="./src/objects/Bullet.js"></script>
+    <script src="./src/objects/Enemy.js"></script>
+    <!-- 3. 씬 -->
+    <script src="./src/scenes/TitleScene.js"></script>
+    <script src="./src/scenes/CharacterSelectScene.js"></script>
+    <script src="./src/scenes/GameScene.js"></script>
+    <!-- 4. 게임 시작 -->
+    <script src="./src/main.js"></script>
+  </body>
+</html>
