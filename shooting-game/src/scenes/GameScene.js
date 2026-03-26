@@ -5,6 +5,103 @@ class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' });
   }
 
+  createParticleSystem() {
+    // 파티클용 1x1 흰 점 텍스처 생성 (내장 파티클 시스템 사용)
+    if (!this.textures.exists('px')) {
+      var g = this.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(0xffffff, 1);
+      g.fillRect(0, 0, 2, 2);
+      g.generateTexture('px', 2, 2);
+      g.destroy();
+    }
+
+    // 성능용: 파티클/이미터를 한 번만 만들고 재사용
+    // Phaser 버전(3.5x / 3.6x+) 차이를 모두 지원
+    this.hitEmitter = null;
+    this.deathEmitter = null;
+    try {
+      this.fxParticles = this.add.particles('px');
+      if (this.fxParticles && this.fxParticles.setDepth) {
+        // Phaser 3.5x: ParticleEmitterManager
+        this.fxParticles.setDepth(999);
+      }
+      if (this.fxParticles && this.fxParticles.createEmitter) {
+        // Phaser 3.5x 방식
+        this.hitEmitter = this.fxParticles.createEmitter({
+          speed: { min: 90, max: 220 },
+          angle: { min: 0, max: 360 },
+          scale: { start: 2.1, end: 0 },
+          lifespan: 260,
+          quantity: 9,
+          tint: 0x3b82f6,
+          blendMode: Phaser.BlendModes.ADD,
+          on: false
+        });
+        this.deathEmitter = this.fxParticles.createEmitter({
+          speed: { min: 120, max: 280 },
+          angle: { min: 0, max: 360 },
+          scale: { start: 2.8, end: 0 },
+          lifespan: 360,
+          quantity: 14,
+          tint: 0xef4444,
+          blendMode: Phaser.BlendModes.ADD,
+          on: false
+        });
+      } else {
+        // Phaser 3.6x+ 방식: add.particles(x, y, key, config) -> Emitter
+        this.hitEmitter = this.add.particles(0, 0, 'px', {
+          speed: { min: 90, max: 220 },
+          angle: { min: 0, max: 360 },
+          scale: { start: 2.1, end: 0 },
+          lifespan: 260,
+          quantity: 9,
+          tint: 0x3b82f6,
+          blendMode: Phaser.BlendModes.ADD,
+          emitting: false
+        });
+        this.deathEmitter = this.add.particles(0, 0, 'px', {
+          speed: { min: 120, max: 280 },
+          angle: { min: 0, max: 360 },
+          scale: { start: 2.8, end: 0 },
+          lifespan: 360,
+          quantity: 14,
+          tint: 0xef4444,
+          blendMode: Phaser.BlendModes.ADD,
+          emitting: false
+        });
+        if (this.hitEmitter && this.hitEmitter.setDepth) this.hitEmitter.setDepth(999);
+        if (this.deathEmitter && this.deathEmitter.setDepth) this.deathEmitter.setDepth(999);
+      }
+    } catch (err) {
+      this.fxParticles = null;
+      this.hitEmitter = null;
+      this.deathEmitter = null;
+    }
+    this.lastHitFxTime = 0;
+    this.hitFxCooldownMs = 35;
+  }
+
+  playHitEffect(x, y) {
+    var now = this.time.now;
+    if (now - this.lastHitFxTime < this.hitFxCooldownMs) return;
+    this.lastHitFxTime = now;
+    if (!this.hitEmitter) return;
+    if (this.hitEmitter.explode) {
+      this.hitEmitter.explode(9, x, y);
+    } else if (this.hitEmitter.emitParticleAt) {
+      this.hitEmitter.emitParticleAt(x, y, 9);
+    }
+  }
+
+  playDeathEffect(x, y) {
+    if (!this.deathEmitter) return;
+    if (this.deathEmitter.explode) {
+      this.deathEmitter.explode(14, x, y);
+    } else if (this.deathEmitter.emitParticleAt) {
+      this.deathEmitter.emitParticleAt(x, y, 14);
+    }
+  }
+
   preload() {
     if (typeof window !== 'undefined') {
       window.GAME_TEXTURES = {
@@ -54,6 +151,7 @@ class GameScene extends Phaser.Scene {
       'enemy_zombie1_silencer',
       'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_silencer.png'
     );
+    this.load.image('game_bg', 'Background.png');
   }
 
   create(data) {
@@ -65,7 +163,15 @@ class GameScene extends Phaser.Scene {
     this.level3KillCount = 0;
     this.bossSpawned = false;
     this.bossAlive = false;
+    this.levelBanner = null;
+    this.bossBanner = null;
     var sel = (typeof window !== 'undefined' && window.SELECTION) || { character: 'normal', abilities: [] };
+
+    this.bgImage = this.add.image(400, 300, 'game_bg');
+    this.bgImage.setDisplaySize(800, 600);
+    this.bgImage.setDepth(-1000);
+
+    this.createParticleSystem();
 
     this.player = new Player(this, 400, 300, sel);
 
@@ -88,7 +194,7 @@ class GameScene extends Phaser.Scene {
     this.spawnInitialEnemies(this.currentLevel === 1 ? 3 : 4, this.currentLevel === 1 ? 4 : 5);
 
     this.scoreText = this.add.text(20, 20, '점수: 0', { fontSize: 24, color: '#fff' });
-    this.levelText = this.add.text(20, 50, '레벨: ' + this.currentLevel, { fontSize: 22, color: '#7dd3fc' });
+    this.showLevelBanner(this.currentLevel);
 
     var self = this;
     this.input.on('pointerdown', function(pointer) {
@@ -147,6 +253,23 @@ class GameScene extends Phaser.Scene {
     btnTitle.on('pointerout', function() { btnTitle.setFillStyle(0xf87171); });
   }
 
+  showBanner(text, color, durationMs) {
+    var t = this.add.text(400, 90, text, { fontSize: 34, color: color || '#fff' })
+      .setOrigin(0.5)
+      .setDepth(200)
+      .setAlpha(0.95);
+    this.time.delayedCall(durationMs || 1200, function() {
+      if (t && t.destroy) t.destroy();
+    }, null, this);
+    return t;
+  }
+
+  showLevelBanner(level) {
+    if (this.levelBanner && this.levelBanner.destroy) this.levelBanner.destroy();
+    var color = level === 1 ? '#7dd3fc' : (level === 2 ? '#f59e0b' : '#ef4444');
+    this.levelBanner = this.showBanner('LEVEL ' + level, color, 1200);
+  }
+
   setupLevel(level) {
     if (level === 1) {
       this.spawnInterval = 5000;
@@ -158,11 +281,14 @@ class GameScene extends Phaser.Scene {
       this.spawnInterval = 4200;
       this.spawnIntervalMin = 900;
     }
+    // 레벨별 최대 적 수: 1레벨 4명, 레벨당 +1
+    this.maxEnemies = 3 + level;
   }
 
   spawnInitialEnemies(minCount, maxCount) {
     var initialCount = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
     for (var i = 0; i < initialCount; i++) {
+      if (this.enemies.length >= this.maxEnemies) break;
       var spawnX = 80 + Math.random() * 640;
       var spawnY = 80 + Math.random() * 440;
       var e = new Enemy(this, spawnX, spawnY, this.player, this.enemyBullets);
@@ -189,33 +315,45 @@ class GameScene extends Phaser.Scene {
     this.currentLevel = 2;
     this.setupLevel(2);
     this.lastSpawnTime = this.time.now;
-    this.levelText.setText('레벨: 2');
     this.clearCombatObjects();
     this.spawnInitialEnemies(4, 5);
-    this.add.text(400, 90, 'LEVEL 2', { fontSize: 34, color: '#f59e0b' }).setOrigin(0.5).setDepth(100).setAlpha(0.95);
+    this.showLevelBanner(2);
   }
 
   levelUpTo3() {
     this.currentLevel = 3;
     this.setupLevel(3);
     this.lastSpawnTime = this.time.now;
-    this.levelText.setText('레벨: 3');
     this.clearCombatObjects();
     this.spawnInitialEnemies(4, 5);
     this.level3KillCount = 0;
     this.bossSpawned = false;
     this.bossAlive = false;
-    this.add.text(400, 90, 'LEVEL 3', { fontSize: 34, color: '#ef4444' }).setOrigin(0.5).setDepth(100).setAlpha(0.95);
+    this.showLevelBanner(3);
   }
 
   spawnBoss() {
+    // 최대 적 수를 절대 넘기지 않음. 자리가 없으면 일반 적 1마리를 제거하고 보스 스폰
+    if (this.enemies.length >= this.maxEnemies) {
+      for (var i = this.enemies.length - 1; i >= 0; i--) {
+        var e = this.enemies[i];
+        if (!e || !e.isBoss) {
+          if (e && e.destroy) e.destroy();
+          this.enemies.splice(i, 1);
+          break;
+        }
+      }
+      if (this.enemies.length >= this.maxEnemies) return false;
+    }
     var spawnX = 80 + Math.random() * 640;
     var spawnY = 80 + Math.random() * 440;
     var boss = new Enemy(this, spawnX, spawnY, this.player, this.enemyBullets, { isBoss: true });
     this.enemies.push(boss);
     this.bossSpawned = true;
     this.bossAlive = true;
-    this.add.text(400, 130, 'BOSS 등장!', { fontSize: 30, color: '#f87171' }).setOrigin(0.5).setDepth(110).setAlpha(0.95);
+    if (this.bossBanner && this.bossBanner.destroy) this.bossBanner.destroy();
+    this.bossBanner = this.showBanner('BOSS 등장!', '#f87171', 1200);
+    return true;
   }
 
   update() {
@@ -230,12 +368,37 @@ class GameScene extends Phaser.Scene {
       this.levelUpTo3();
     }
 
+    // 안전장치: 어떤 이유로든 적이 최대치를 넘으면 즉시 정리
+    if (!this.maxEnemies) this.maxEnemies = 4;
+    if (this.enemies.length > this.maxEnemies) {
+      for (var trim = this.enemies.length - 1; trim >= 0 && this.enemies.length > this.maxEnemies; trim--) {
+        var te = this.enemies[trim];
+        // 보스는 우선 보존하고 일반 적을 먼저 제거
+        if (te && te.isBoss) continue;
+        if (te && te.destroy) te.destroy();
+        this.enemies.splice(trim, 1);
+      }
+      // 그래도 넘치면(보스만 남았는데도) 뒤에서부터 제거
+      for (var trim2 = this.enemies.length - 1; trim2 >= 0 && this.enemies.length > this.maxEnemies; trim2--) {
+        var te2 = this.enemies[trim2];
+        if (te2 && te2.destroy) te2.destroy();
+        this.enemies.splice(trim2, 1);
+      }
+    }
+
+    // 3레벨: 3킬 달성 시 보스 스폰. 보스가 뜰 때까지 일반 스폰은 잠깐 대기
+    var waitingBoss = (this.currentLevel === 3 && !this.bossSpawned && this.level3KillCount >= 3);
+    if (waitingBoss) {
+      this.spawnBoss();
+    }
+
     // 적 스폰 (시작 뒤엔 한 번에 2~3명, 점점 더 빠르게)
-    if (time - this.lastSpawnTime >= this.spawnInterval) {
+    if (!waitingBoss && time - this.lastSpawnTime >= this.spawnInterval) {
       this.lastSpawnTime = time;
       this.spawnInterval = Math.max(this.spawnIntervalMin, this.spawnInterval - 150);
       var count = 2 + Math.floor(Math.random() * 2);
       for (var si = 0; si < count; si++) {
+        if (this.enemies.length >= this.maxEnemies) break;
         var side = Math.floor(Math.random() * 4);
         var spawnX, spawnY;
         if (side === 0) { spawnX = Math.random() * 800; spawnY = -15; }
@@ -265,12 +428,14 @@ class GameScene extends Phaser.Scene {
         var e = this.enemies[j];
         var dist = Phaser.Math.Distance.Between(x, y, e.x, e.y);
         if (dist < 22) {
+          this.playHitEffect(e.x, e.y);
           b.destroy();
           this.bullets.splice(i, 1);
           if (e.takeDamage(1)) {
             var wasBoss = !!e.isBoss;
             this.enemies.splice(j, 1);
             if (wasBoss) this.bossAlive = false;
+            this.playDeathEffect(e.x, e.y);
             this.score += 10;
             this.scoreText.setText('점수: ' + this.score);
             if (this.currentLevel === 3 && !wasBoss) {
@@ -300,6 +465,7 @@ class GameScene extends Phaser.Scene {
       var eb = this.enemyBullets[i];
       var dist = Phaser.Math.Distance.Between(this.player.rect.x, this.player.rect.y, eb.x, eb.y);
       if (dist < 24) {
+        this.playHitEffect(this.player.rect.x, this.player.rect.y);
         eb.destroy();
         this.enemyBullets.splice(i, 1);
         var dmg = eb.damage || 1;
