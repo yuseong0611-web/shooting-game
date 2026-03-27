@@ -93,6 +93,22 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  playImpactFlash(x, y, color, radius, shakeIntensity) {
+    var ring = this.add.circle(x, y, radius || 12, color || 0xffffff, 0.45).setDepth(998);
+    ring.setStrokeStyle(2, 0xffffff, 0.9);
+    this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      scale: 1.8,
+      duration: 130,
+      ease: 'Cubic.Out',
+      onComplete: function() { ring.destroy(); }
+    });
+    if (this.cameras && this.cameras.main) {
+      this.cameras.main.shake(55, shakeIntensity || 0.0015);
+    }
+  }
+
   playDeathEffect(x, y) {
     if (!this.deathEmitter) return;
     if (this.deathEmitter.explode) {
@@ -429,6 +445,7 @@ class GameScene extends Phaser.Scene {
         var dist = Phaser.Math.Distance.Between(x, y, e.x, e.y);
         if (dist < 22) {
           this.playHitEffect(e.x, e.y);
+          this.playImpactFlash(e.x, e.y, 0xffe08a, 11, 0.0012);
           b.destroy();
           this.bullets.splice(i, 1);
           if (e.takeDamage(1)) {
@@ -466,6 +483,7 @@ class GameScene extends Phaser.Scene {
       var dist = Phaser.Math.Distance.Between(this.player.rect.x, this.player.rect.y, eb.x, eb.y);
       if (dist < 24) {
         this.playHitEffect(this.player.rect.x, this.player.rect.y);
+        this.playImpactFlash(this.player.rect.x, this.player.rect.y, 0x60a5fa, 13, 0.0022);
         eb.destroy();
         this.enemyBullets.splice(i, 1);
         var dmg = eb.damage || 1;
