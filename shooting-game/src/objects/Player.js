@@ -2,9 +2,9 @@
 // 옵션: window.SELECTION.character, SELECTION.abilities 반영
 
 var PLAYER_CONFIG = {
-  normal: { speed: 200, color: 0x00ff00, maxHp: 5 },
-  fast:   { speed: 280, color: 0x00ccff, maxHp: 5 },
-  tank:   { speed: 150, color: 0xff8800, maxHp: 7 }
+  normal: { speed: 200, color: 0x00ff00, maxHp: 10 },
+  fast:   { speed: 280, color: 0x00ccff, maxHp: 10 },
+  tank:   { speed: 150, color: 0xff8800, maxHp: 50 }
 };
 
 class Player {

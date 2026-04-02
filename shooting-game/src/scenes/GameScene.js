@@ -6,7 +6,6 @@ class GameScene extends Phaser.Scene {
   }
 
   createParticleSystem() {
-    // 파티클용 1x1 흰 점 텍스처 생성 (내장 파티클 시스템 사용)
     if (!this.textures.exists('px')) {
       var g = this.make.graphics({ x: 0, y: 0, add: false });
       g.fillStyle(0xffffff, 1);
@@ -15,18 +14,14 @@ class GameScene extends Phaser.Scene {
       g.destroy();
     }
 
-    // 성능용: 파티클/이미터를 한 번만 만들고 재사용
-    // Phaser 버전(3.5x / 3.6x+) 차이를 모두 지원
     this.hitEmitter = null;
     this.deathEmitter = null;
     try {
       this.fxParticles = this.add.particles('px');
       if (this.fxParticles && this.fxParticles.setDepth) {
-        // Phaser 3.5x: ParticleEmitterManager
         this.fxParticles.setDepth(999);
       }
       if (this.fxParticles && this.fxParticles.createEmitter) {
-        // Phaser 3.5x 방식
         this.hitEmitter = this.fxParticles.createEmitter({
           speed: { min: 90, max: 220 },
           angle: { min: 0, max: 360 },
@@ -48,7 +43,6 @@ class GameScene extends Phaser.Scene {
           on: false
         });
       } else {
-        // Phaser 3.6x+ 방식: add.particles(x, y, key, config) -> Emitter
         this.hitEmitter = this.add.particles(0, 0, 'px', {
           speed: { min: 90, max: 220 },
           angle: { min: 0, max: 360 },
@@ -181,6 +175,14 @@ class GameScene extends Phaser.Scene {
     this.bossAlive = false;
     this.levelBanner = null;
     this.bossBanner = null;
+    this.bossBannerGroup = null;
+
+    // 4레벨 관련 변수
+    this.level4BossCount = 0;
+    this.level4BossKills = 0;
+    this.level4Cleared = false;
+    this._pendingLevel4 = false;
+
     var sel = (typeof window !== 'undefined' && window.SELECTION) || { character: 'normal', abilities: [] };
 
     this.bgImage = this.add.image(400, 300, 'game_bg');
@@ -249,7 +251,15 @@ class GameScene extends Phaser.Scene {
     var panel = this.add.rectangle(400, 280, 360, 200, 0x2a2a3e);
     var title = this.add.text(400, 200, '게임 오버', { fontSize: 32, color: '#fff' }).setOrigin(0.5);
     var finalScore = this.add.text(400, 245, '최종 점수: ' + this.score, { fontSize: 22, color: '#fbbf24' }).setOrigin(0.5);
-    var msgText = this.currentLevel >= 2 ? '2~3레벨 사망: 1레벨부터 다시 시작됩니다.' : '다시 하시겠습니까?';
+
+    var msgText;
+    if (this.currentLevel === 4) {
+      msgText = '4레벨 사망: 1레벨부터 다시 시작됩니다.';
+    } else if (this.currentLevel >= 2) {
+      msgText = '2~3레벨 사망: 1레벨부터 다시 시작됩니다.';
+    } else {
+      msgText = '다시 하시겠습니까?';
+    }
     var msg = this.add.text(400, 280, msgText, { fontSize: 18, color: '#ccc' }).setOrigin(0.5);
 
     var btnRestart = this.add.rectangle(280, 355, 140, 44, 0x4ade80).setInteractive({ useHandCursor: true });
@@ -282,8 +292,248 @@ class GameScene extends Phaser.Scene {
 
   showLevelBanner(level) {
     if (this.levelBanner && this.levelBanner.destroy) this.levelBanner.destroy();
-    var color = level === 1 ? '#7dd3fc' : (level === 2 ? '#f59e0b' : '#ef4444');
+    var color = level === 1 ? '#7dd3fc'
+      : level === 2 ? '#f59e0b'
+      : level === 3 ? '#ef4444'
+      : '#7f1d1d'; // 4레벨: 진한 다크레드
     this.levelBanner = this.showBanner('LEVEL ' + level, color, 1200);
+  }
+
+  clearBossBannerGroup() {
+    if (this.bossBannerGroup && this.bossBannerGroup.destroy) {
+      this.bossBannerGroup.destroy(true);
+    }
+    this.bossBannerGroup = null;
+  }
+
+  showBossAppearBanner() {
+    this.clearBossBannerGroup();
+    var cx = 400;
+    var cy = 130;
+    var g = this.add.container(cx, cy);
+    g.setDepth(260);
+
+    var glow = this.add.text(0, 0, 'BOSS 등장!', {
+      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontSize: '52px',
+      color: '#7f1d1d',
+      stroke: '#450a0a',
+      strokeThickness: 14
+    }).setOrigin(0.5);
+
+    var title = this.add.text(0, 0, 'BOSS 등장!', {
+      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontSize: '52px',
+      color: '#ff6b6b',
+      stroke: '#fef2f2',
+      strokeThickness: 6,
+      shadow: { offsetX: 4, offsetY: 4, color: '#000000', blur: 16, stroke: true, fill: true }
+    }).setOrigin(0.5);
+
+    var sub = this.add.text(0, 48, '>>> 최종 보스가 나타났습니다! <<<', {
+      fontFamily: 'Malgun Gothic, sans-serif',
+      fontSize: '20px',
+      color: '#fde68a',
+      stroke: '#422006',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+
+    g.add([glow, title, sub]);
+    g.setScale(0.15);
+    g.setAlpha(0);
+
+    this.tweens.add({
+      targets: g,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 1,
+      duration: 550,
+      ease: 'Back.easeOut'
+    });
+    this.tweens.add({
+      targets: g,
+      angle: { from: -4, to: 4 },
+      duration: 180,
+      yoyo: true,
+      repeat: 5,
+      ease: 'Sine.easeInOut'
+    });
+    this.tweens.add({
+      targets: title,
+      scaleX: { from: 1, to: 1.06 },
+      scaleY: { from: 1, to: 1.06 },
+      duration: 400,
+      yoyo: true,
+      repeat: 2,
+      ease: 'Sine.easeInOut'
+    });
+    this.time.delayedCall(2200, function() {
+      this.tweens.add({
+        targets: g,
+        alpha: 0,
+        scaleX: 1.15,
+        scaleY: 1.15,
+        y: cy - 30,
+        duration: 450,
+        ease: 'Power2',
+        onComplete: function() { if (g && g.destroy) g.destroy(true); }
+      });
+    }, null, this);
+
+    this.bossBannerGroup = g;
+    this.bossBanner = g;
+  }
+
+  showBossDefeatBanner() {
+    this.clearBossBannerGroup();
+    var cx = 400;
+    var cy = 160;
+    var g = this.add.container(cx, cy);
+    g.setDepth(260);
+
+    var glow = this.add.text(0, 0, '보스 격파!', {
+      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontSize: '48px',
+      color: '#14532d',
+      stroke: '#052e16',
+      strokeThickness: 12
+    }).setOrigin(0.5);
+
+    var title = this.add.text(0, 0, '보스 격파!', {
+      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontSize: '48px',
+      color: '#4ade80',
+      stroke: '#ecfdf5',
+      strokeThickness: 5,
+      shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 14, stroke: true, fill: true }
+    }).setOrigin(0.5);
+
+    var sub = this.add.text(0, 44, '*** 위대한 승리! ***', {
+      fontFamily: 'Malgun Gothic, sans-serif',
+      fontSize: '22px',
+      color: '#fef08a',
+      stroke: '#713f12',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+
+    g.add([glow, title, sub]);
+    g.setScale(0.2);
+    g.setAlpha(0);
+
+    this.tweens.add({
+      targets: g,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 1,
+      duration: 480,
+      ease: 'Back.easeOut'
+    });
+    this.tweens.add({
+      targets: title,
+      angle: { from: -8, to: 8 },
+      duration: 120,
+      yoyo: true,
+      repeat: 6,
+      ease: 'Sine.easeInOut'
+    });
+    this.tweens.add({
+      targets: sub,
+      scaleX: { from: 1, to: 1.12 },
+      scaleY: { from: 1, to: 1.12 },
+      duration: 350,
+      yoyo: true,
+      repeat: 3
+    });
+    this.time.delayedCall(2800, function() {
+      this.tweens.add({
+        targets: g,
+        alpha: 0,
+        scaleX: 1.2,
+        scaleY: 1.2,
+        duration: 500,
+        ease: 'Power2',
+        onComplete: function() { if (g && g.destroy) g.destroy(true); }
+      });
+    }, null, this);
+
+    this.bossBannerGroup = g;
+    this.bossBanner = g;
+  }
+
+  showFinalClearBanner() {
+    this.gameOver = true;
+    var cx = 400, cy = 200;
+    var overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.6).setDepth(258);
+    var g = this.add.container(cx, cy).setDepth(260);
+
+    var glow = this.add.text(0, 0, 'GAME CLEAR!', {
+      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontSize: '58px',
+      color: '#1a1a00',
+      stroke: '#000000',
+      strokeThickness: 18
+    }).setOrigin(0.5);
+
+    var title = this.add.text(0, 0, 'GAME CLEAR!', {
+      fontFamily: 'Arial Black, Arial, sans-serif',
+      fontSize: '58px',
+      color: '#fde047',
+      stroke: '#fef9c3',
+      strokeThickness: 6,
+      shadow: { offsetX: 4, offsetY: 4, color: '#000000', blur: 18, stroke: true, fill: true }
+    }).setOrigin(0.5);
+
+    var sub = this.add.text(0, 62, '모든 보스를 처치했습니다!', {
+      fontFamily: 'Malgun Gothic, sans-serif',
+      fontSize: '24px',
+      color: '#ffffff',
+      stroke: '#1e3a5f',
+      strokeThickness: 5
+    }).setOrigin(0.5);
+
+    var scoreMsg = this.add.text(0, 100, '최종 점수: ' + this.score, {
+      fontFamily: 'Malgun Gothic, sans-serif',
+      fontSize: '22px',
+      color: '#fbbf24',
+      stroke: '#422006',
+      strokeThickness: 4
+    }).setOrigin(0.5);
+
+    g.add([glow, title, sub, scoreMsg]);
+    g.setScale(0.1);
+    g.setAlpha(0);
+
+    this.tweens.add({
+      targets: g,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 1,
+      duration: 650,
+      ease: 'Back.easeOut'
+    });
+    this.tweens.add({
+      targets: title,
+      angle: { from: -5, to: 5 },
+      duration: 200,
+      yoyo: true,
+      repeat: 4,
+      ease: 'Sine.easeInOut'
+    });
+
+    // 2.5초 후 버튼 표시
+    this.time.delayedCall(2500, function() {
+      var btnRestart = this.add.rectangle(300, 460, 160, 48, 0x4ade80).setDepth(261).setInteractive({ useHandCursor: true });
+      var txtRestart = this.add.text(300, 460, '다시 시작', { fontSize: 20, color: '#000' }).setOrigin(0.5).setDepth(262);
+      btnRestart.on('pointerdown', function() { this.scene.restart({ level: 1 }); }, this);
+      btnRestart.on('pointerover', function() { btnRestart.setFillStyle(0x86efac); });
+      btnRestart.on('pointerout', function() { btnRestart.setFillStyle(0x4ade80); });
+
+      var btnTitle = this.add.rectangle(500, 460, 160, 48, 0x60a5fa).setDepth(261).setInteractive({ useHandCursor: true });
+      var txtTitle = this.add.text(500, 460, '초기화면으로', { fontSize: 20, color: '#fff' }).setOrigin(0.5).setDepth(262);
+      btnTitle.on('pointerdown', function() { this.scene.start('TitleScene'); }, this);
+      btnTitle.on('pointerover', function() { btnTitle.setFillStyle(0x93c5fd); });
+      btnTitle.on('pointerout', function() { btnTitle.setFillStyle(0x60a5fa); });
+    }, null, this);
   }
 
   setupLevel(level) {
@@ -293,11 +543,15 @@ class GameScene extends Phaser.Scene {
     } else if (level === 2) {
       this.spawnInterval = 4200;
       this.spawnIntervalMin = 900;
-    } else {
+    } else if (level === 3) {
       this.spawnInterval = 4200;
       this.spawnIntervalMin = 900;
+    } else {
+      // 레벨 4: 소폭 강화
+      this.spawnInterval = 3500;
+      this.spawnIntervalMin = 800;
     }
-    // 레벨별 최대 적 수: 1레벨 4명, 레벨당 +1
+    // 레벨별 최대 적 수: 1→4, 2→5, 3→6, 4→7
     this.maxEnemies = 3 + level;
   }
 
@@ -348,6 +602,20 @@ class GameScene extends Phaser.Scene {
     this.showLevelBanner(3);
   }
 
+  levelUpTo4() {
+    this.currentLevel = 4;
+    this.setupLevel(4);
+    this.lastSpawnTime = this.time.now;
+    this.clearCombatObjects();
+    this.spawnInitialEnemies(4, 5);
+    this.level4BossCount = 0;
+    this.level4BossKills = 0;
+    this.level4Cleared = false;
+    this.bossSpawned = false;
+    this.bossAlive = false;
+    this.showLevelBanner(4);
+  }
+
   spawnBoss() {
     // 최대 적 수를 절대 넘기지 않음. 자리가 없으면 일반 적 1마리를 제거하고 보스 스폰
     if (this.enemies.length >= this.maxEnemies) {
@@ -367,8 +635,10 @@ class GameScene extends Phaser.Scene {
     this.enemies.push(boss);
     this.bossSpawned = true;
     this.bossAlive = true;
-    if (this.bossBanner && this.bossBanner.destroy) this.bossBanner.destroy();
-    this.bossBanner = this.showBanner('BOSS 등장!', '#f87171', 1200);
+    if (this.currentLevel === 4) {
+      this.level4BossCount += 1;
+    }
+    this.showBossAppearBanner();
     return true;
   }
 
@@ -377,6 +647,7 @@ class GameScene extends Phaser.Scene {
     var time = this.time.now;
     this.player.update(this.keys, time);
 
+    // 레벨 전환 조건
     if (this.currentLevel === 1 && this.score >= this.level2Score) {
       this.levelUpTo2();
     }
@@ -384,17 +655,24 @@ class GameScene extends Phaser.Scene {
       this.levelUpTo3();
     }
 
+    // 4레벨 진입: 3레벨 보스 격파 직후 (딜레이 후 전환)
+    if (this.currentLevel === 3 && this.bossSpawned && !this.bossAlive && !this._pendingLevel4) {
+      this._pendingLevel4 = true;
+      this.time.delayedCall(2800, function() {
+        this._pendingLevel4 = false;
+        this.levelUpTo4();
+      }, null, this);
+    }
+
     // 안전장치: 어떤 이유로든 적이 최대치를 넘으면 즉시 정리
     if (!this.maxEnemies) this.maxEnemies = 4;
     if (this.enemies.length > this.maxEnemies) {
       for (var trim = this.enemies.length - 1; trim >= 0 && this.enemies.length > this.maxEnemies; trim--) {
         var te = this.enemies[trim];
-        // 보스는 우선 보존하고 일반 적을 먼저 제거
         if (te && te.isBoss) continue;
         if (te && te.destroy) te.destroy();
         this.enemies.splice(trim, 1);
       }
-      // 그래도 넘치면(보스만 남았는데도) 뒤에서부터 제거
       for (var trim2 = this.enemies.length - 1; trim2 >= 0 && this.enemies.length > this.maxEnemies; trim2--) {
         var te2 = this.enemies[trim2];
         if (te2 && te2.destroy) te2.destroy();
@@ -402,14 +680,21 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // 3레벨: 3킬 달성 시 보스 스폰. 보스가 뜰 때까지 일반 스폰은 잠깐 대기
+    // 3레벨: 3킬 달성 시 보스 스폰
     var waitingBoss = (this.currentLevel === 3 && !this.bossSpawned && this.level3KillCount >= 3);
     if (waitingBoss) {
       this.spawnBoss();
     }
 
+    // 4레벨: 일반 적 3킬 후 첫 번째 보스 스폰
+    var waiting4Boss = (this.currentLevel === 4 && !this.bossSpawned && this.level3KillCount >= 3);
+    if (waiting4Boss) {
+      this.spawnBoss();
+    }
+
     // 적 스폰 (시작 뒤엔 한 번에 2~3명, 점점 더 빠르게)
-    if (!waitingBoss && time - this.lastSpawnTime >= this.spawnInterval) {
+    var skipSpawn = waitingBoss || waiting4Boss;
+    if (!skipSpawn && time - this.lastSpawnTime >= this.spawnInterval) {
       this.lastSpawnTime = time;
       this.spawnInterval = Math.max(this.spawnIntervalMin, this.spawnInterval - 150);
       var count = 2 + Math.floor(Math.random() * 2);
@@ -431,7 +716,7 @@ class GameScene extends Phaser.Scene {
       this.enemies[i].update(time);
     }
 
-    // 화면 밖으로 나간 플레이어 총알 제거 + 적과 충돌 시 데미지 (한 방에 안 죽음)
+    // 화면 밖으로 나간 플레이어 총알 제거 + 적과 충돌 시 데미지
     for (var i = this.bullets.length - 1; i >= 0; i--) {
       var b = this.bullets[i];
       var x = b.x, y = b.y;
@@ -453,13 +738,39 @@ class GameScene extends Phaser.Scene {
             this.enemies.splice(j, 1);
             if (wasBoss) this.bossAlive = false;
             this.playDeathEffect(e.x, e.y);
+            if (wasBoss) this.showBossDefeatBanner();
             this.score += 10;
             this.scoreText.setText('점수: ' + this.score);
+
+            // 3레벨 킬 카운트
             if (this.currentLevel === 3 && !wasBoss) {
               this.level3KillCount += 1;
               if (!this.bossSpawned && this.level3KillCount >= 3) {
                 this.spawnBoss();
               }
+            }
+
+            // 4레벨 보스 처치 처리
+            if (this.currentLevel === 4 && wasBoss) {
+              this.level4BossKills += 1;
+              // 첫 번째 보스 처치 후 두 번째 보스 스폰 (아직 2마리 안 됐으면)
+              if (this.level4BossCount < 2) {
+                this.time.delayedCall(1500, function() {
+                  if (!this.gameOver) this.spawnBoss();
+                }, null, this);
+              }
+              // 보스 2마리 모두 처치 → 최종 클리어
+              if (this.level4BossKills >= 2 && !this.level4Cleared) {
+                this.level4Cleared = true;
+                this.time.delayedCall(800, function() {
+                  this.showFinalClearBanner();
+                }, null, this);
+              }
+            }
+
+            // 4레벨 일반 적 킬 카운트 (보스 스폰 트리거)
+            if (this.currentLevel === 4 && !wasBoss && !this.bossSpawned) {
+              this.level3KillCount += 1;
             }
           }
           break;
@@ -477,7 +788,7 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // 플레이어와 적 총알 충돌 → 플레이어 데미지, 5번 맞으면 사망 → 팝업
+    // 플레이어와 적 총알 충돌 → 플레이어 데미지, 사망 시 팝업
     for (var i = this.enemyBullets.length - 1; i >= 0; i--) {
       var eb = this.enemyBullets[i];
       var dist = Phaser.Math.Distance.Between(this.player.rect.x, this.player.rect.y, eb.x, eb.y);
