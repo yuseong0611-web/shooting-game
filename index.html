@@ -1,9 +1,11 @@
-<!-- index.html: 게임 진입점. 파일을 순서대로 불러옴 -->
+<!-- index.html: 게임 진입점 (저장소 루트). 에셋·스크립트는 shooting-game/ 기준 -->
 <!DOCTYPE html>
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <title>탑다운 슈팅게임</title>
+    <!-- 문서 기준 URL을 shooting-game/ 으로 두어, 스크립트·Phaser load 경로가 한 단계 안쪽과 동일하게 동작 -->
+    <base href="./shooting-game/" />
     <style>
       body {
         margin: 0;
