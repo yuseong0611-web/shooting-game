@@ -1,13 +1,16 @@
 // Bullet.js: 총알 오브젝트. 화면 밖으로 나갈 때까지 직선 비행 (전역 클래스)
 
 class Bullet {
-  constructor(scene, x, y, dirX, dirY, speed, color, damage) {
+  constructor(scene, x, y, dirX, dirY, speed, color, damage, bulletOptions) {
     this.scene = scene;
     this.speed = speed || 400;
     this.color = color !== undefined ? color : 0xffff00;
     this.damage = damage || 1;
+    this.bulletOptions = bulletOptions || {};
+    this.explosive = !!this.bulletOptions.explosive;
 
-    this.graphic = scene.add.circle(x, y, 6, this.color);
+    var radius = this.explosive ? 9 : 6;
+    this.graphic = scene.add.circle(x, y, radius, this.color);
     scene.physics.add.existing(this.graphic);
     this.body = this.graphic.body;
 

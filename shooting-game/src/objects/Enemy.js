@@ -7,6 +7,8 @@ class Enemy {
     this.enemyBullets = enemyBulletsArray;
     this.options = options || {};
     this.isBoss = !!this.options.isBoss;
+    this.enemyType = this.isBoss ? 'zombie' : (this.options.enemyType === 'robot' ? 'robot' : 'zombie');
+
     this.speed = 70;
     this.shootInterval = 1500;
     this.lastShotTime = 0;
@@ -19,8 +21,33 @@ class Enemy {
     this.maxHp = this.isBoss ? 9 : 3;
     this.hp = this.maxHp;
     this.bulletDamage = this.isBoss ? 0 : 1;
+    this.robotBulletDamage = 2;
 
-    var enemyTexture = (typeof window !== 'undefined' && window.GAME_TEXTURES && window.GAME_TEXTURES.enemy) || '';
+    var GT = (typeof window !== 'undefined' && window.GAME_TEXTURES) || {};
+    var enemyTexture = '';
+    var enemyFramesList = [];
+    var enemyReloadTex = '';
+    if (this.isBoss) {
+      enemyTexture = GT.enemy || '';
+      enemyFramesList = GT.enemyFrames || [];
+      enemyReloadTex = GT.enemyReload || '';
+    } else if (this.enemyType === 'robot') {
+      enemyTexture = GT.robot || '';
+      enemyFramesList = GT.robotFrames || [];
+      enemyReloadTex = GT.robotReload || '';
+      this.maxHp = 4;
+      this.hp = 4;
+      this.shootInterval = 2500;
+      this.bulletSpeed = 240;
+      var bossDmg = Math.max(1, Math.ceil(this.player.maxHp / 3));
+      var desired = Math.max(2, Math.floor(bossDmg * 0.55));
+      this.robotBulletDamage = bossDmg > 1 ? Math.min(bossDmg - 1, desired) : 1;
+    } else {
+      enemyTexture = GT.enemy || '';
+      enemyFramesList = GT.enemyFrames || [];
+      enemyReloadTex = GT.enemyReload || '';
+    }
+
     if (enemyTexture && scene.textures.exists(enemyTexture)) {
       this.rect = scene.physics.add.image(x, y, enemyTexture);
       this.rect.setDisplaySize(this.isBoss ? 52 : 34, this.isBoss ? 52 : 34);
@@ -30,8 +57,8 @@ class Enemy {
     }
     this.body = this.rect.body;
     this.body.setCollideWorldBounds(true);
-    this.enemyFrames = (typeof window !== 'undefined' && window.GAME_TEXTURES && window.GAME_TEXTURES.enemyFrames) || [];
-    this.enemyReloadTexture = (typeof window !== 'undefined' && window.GAME_TEXTURES && window.GAME_TEXTURES.enemyReload) || '';
+    this.enemyFrames = enemyFramesList;
+    this.enemyReloadTexture = enemyReloadTex;
     this.enemyFrameIndex = 0;
     this.animInterval = 140;
     this.lastAnimTime = 0;
@@ -115,7 +142,12 @@ class Enemy {
       if (this.isBoss) {
         this.bulletDamage = Math.max(1, Math.ceil(this.player.maxHp / 3));
       }
-      var bullet = new Bullet(this.scene, sx, sy, bdx, bdy, this.bulletSpeed, 0xff4444, this.bulletDamage);
+      var bullet;
+      if (this.enemyType === 'robot' && !this.isBoss) {
+        bullet = new Bullet(this.scene, sx, sy, bdx, bdy, this.bulletSpeed, 0xff7722, this.robotBulletDamage, { explosive: true });
+      } else {
+        bullet = new Bullet(this.scene, sx, sy, bdx, bdy, this.bulletSpeed, 0xff4444, this.bulletDamage);
+      }
       this.enemyBullets.push(bullet);
       this.shotCount += 1;
       if (this.shotCount >= 3) {

@@ -16,6 +16,7 @@ class GameScene extends Phaser.Scene {
 
     this.hitEmitter = null;
     this.deathEmitter = null;
+    this.explosionEmitter = null;
     try {
       this.fxParticles = this.add.particles('px');
       if (this.fxParticles && this.fxParticles.setDepth) {
@@ -42,6 +43,16 @@ class GameScene extends Phaser.Scene {
           blendMode: Phaser.BlendModes.ADD,
           on: false
         });
+        this.explosionEmitter = this.fxParticles.createEmitter({
+          speed: { min: 60, max: 200 },
+          angle: { min: 0, max: 360 },
+          scale: { start: 2.4, end: 0 },
+          lifespan: 320,
+          quantity: 16,
+          tint: 0xff8833,
+          blendMode: Phaser.BlendModes.ADD,
+          on: false
+        });
       } else {
         this.hitEmitter = this.add.particles(0, 0, 'px', {
           speed: { min: 90, max: 220 },
@@ -63,13 +74,25 @@ class GameScene extends Phaser.Scene {
           blendMode: Phaser.BlendModes.ADD,
           emitting: false
         });
+        this.explosionEmitter = this.add.particles(0, 0, 'px', {
+          speed: { min: 60, max: 200 },
+          angle: { min: 0, max: 360 },
+          scale: { start: 2.4, end: 0 },
+          lifespan: 320,
+          quantity: 16,
+          tint: [0xffaa33, 0xff6600],
+          blendMode: Phaser.BlendModes.ADD,
+          emitting: false
+        });
         if (this.hitEmitter && this.hitEmitter.setDepth) this.hitEmitter.setDepth(999);
         if (this.deathEmitter && this.deathEmitter.setDepth) this.deathEmitter.setDepth(999);
+        if (this.explosionEmitter && this.explosionEmitter.setDepth) this.explosionEmitter.setDepth(999);
       }
     } catch (err) {
       this.fxParticles = null;
       this.hitEmitter = null;
       this.deathEmitter = null;
+      this.explosionEmitter = null;
     }
     this.lastHitFxTime = 0;
     this.hitFxCooldownMs = 35;
@@ -112,6 +135,24 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  playRocketExplosion(x, y) {
+    if (this.explosionEmitter) {
+      if (this.explosionEmitter.explode) {
+        this.explosionEmitter.explode(16, x, y);
+      } else if (this.explosionEmitter.emitParticleAt) {
+        this.explosionEmitter.emitParticleAt(x, y, 16);
+      }
+    }
+    this.playImpactFlash(x, y, 0xff8800, 24, 0.0026);
+    if (this.hitEmitter) {
+      if (this.hitEmitter.explode) {
+        this.hitEmitter.explode(5, x, y);
+      } else if (this.hitEmitter.emitParticleAt) {
+        this.hitEmitter.emitParticleAt(x, y, 5);
+      }
+    }
+  }
+
   preload() {
     if (typeof window !== 'undefined') {
       window.GAME_TEXTURES = {
@@ -126,6 +167,16 @@ class GameScene extends Phaser.Scene {
           'enemy_zombie1_machine',
           'enemy_zombie1_reload',
           'enemy_zombie1_silencer'
+        ],
+        robot: 'enemy_robot1_hold',
+        robotReload: 'enemy_robot1_reload',
+        robotFrames: [
+          'enemy_robot1_stand',
+          'enemy_robot1_hold',
+          'enemy_robot1_gun',
+          'enemy_robot1_machine',
+          'enemy_robot1_reload',
+          'enemy_robot1_silencer'
         ]
       };
     }
@@ -160,6 +211,30 @@ class GameScene extends Phaser.Scene {
     this.load.image(
       'enemy_zombie1_silencer',
       'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_silencer.png'
+    );
+    this.load.image(
+      'enemy_robot1_stand',
+      'kenney_top-down-shooter/PNG/Robot 1/robot1_stand.png'
+    );
+    this.load.image(
+      'enemy_robot1_hold',
+      'kenney_top-down-shooter/PNG/Robot 1/robot1_hold.png'
+    );
+    this.load.image(
+      'enemy_robot1_gun',
+      'kenney_top-down-shooter/PNG/Robot 1/robot1_gun.png'
+    );
+    this.load.image(
+      'enemy_robot1_machine',
+      'kenney_top-down-shooter/PNG/Robot 1/robot1_machine.png'
+    );
+    this.load.image(
+      'enemy_robot1_reload',
+      'kenney_top-down-shooter/PNG/Robot 1/robot1_reload.png'
+    );
+    this.load.image(
+      'enemy_robot1_silencer',
+      'kenney_top-down-shooter/PNG/Robot 1/robot1_silencer.png'
     );
     this.load.image('game_bg', 'Background.png');
   }
@@ -313,24 +388,43 @@ class GameScene extends Phaser.Scene {
     var g = this.add.container(cx, cy);
     g.setDepth(260);
 
-    var glow = this.add.text(0, 0, 'BOSS 등장!', {
+    var mainTitle = 'BOSS 등장!';
+    var subText = '>>> 보스가 나타났습니다! <<<';
+    var titleFontPx = '52px';
+    if (this.currentLevel === 3) {
+      mainTitle = '첫번째 보스 등장!';
+      subText = '>>> 첫 번째 보스가 나타났습니다! <<<';
+      titleFontPx = '46px';
+    } else if (this.currentLevel === 4) {
+      if (this.level4BossCount === 1) {
+        mainTitle = '두 번째 보스 등장!';
+        subText = '>>> 두 번째 보스가 나타났습니다! <<<';
+        titleFontPx = '46px';
+      } else if (this.level4BossCount >= 2) {
+        mainTitle = '최종 보스 등장!';
+        subText = '>>> 최종 보스가 나타났습니다! <<<';
+        titleFontPx = '46px';
+      }
+    }
+
+    var glow = this.add.text(0, 0, mainTitle, {
       fontFamily: 'Arial Black, Arial, sans-serif',
-      fontSize: '52px',
+      fontSize: titleFontPx,
       color: '#7f1d1d',
       stroke: '#450a0a',
       strokeThickness: 14
     }).setOrigin(0.5);
 
-    var title = this.add.text(0, 0, 'BOSS 등장!', {
+    var title = this.add.text(0, 0, mainTitle, {
       fontFamily: 'Arial Black, Arial, sans-serif',
-      fontSize: '52px',
+      fontSize: titleFontPx,
       color: '#ff6b6b',
       stroke: '#fef2f2',
       strokeThickness: 6,
       shadow: { offsetX: 4, offsetY: 4, color: '#000000', blur: 16, stroke: true, fill: true }
     }).setOrigin(0.5);
 
-    var sub = this.add.text(0, 48, '>>> 최종 보스가 나타났습니다! <<<', {
+    var sub = this.add.text(0, 48, subText, {
       fontFamily: 'Malgun Gothic, sans-serif',
       fontSize: '20px',
       color: '#fde68a',
@@ -555,13 +649,20 @@ class GameScene extends Phaser.Scene {
     this.maxEnemies = 3 + level;
   }
 
+  pickSpawnEnemyOptions() {
+    if (this.currentLevel >= 2 && Math.random() < 0.34) {
+      return { enemyType: 'robot' };
+    }
+    return { enemyType: 'zombie' };
+  }
+
   spawnInitialEnemies(minCount, maxCount) {
     var initialCount = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
     for (var i = 0; i < initialCount; i++) {
       if (this.enemies.length >= this.maxEnemies) break;
       var spawnX = 80 + Math.random() * 640;
       var spawnY = 80 + Math.random() * 440;
-      var e = new Enemy(this, spawnX, spawnY, this.player, this.enemyBullets);
+      var e = new Enemy(this, spawnX, spawnY, this.player, this.enemyBullets, this.pickSpawnEnemyOptions());
       this.enemies.push(e);
     }
   }
@@ -706,7 +807,7 @@ class GameScene extends Phaser.Scene {
         else if (side === 1) { spawnX = 815; spawnY = Math.random() * 600; }
         else if (side === 2) { spawnX = Math.random() * 800; spawnY = 615; }
         else { spawnX = -15; spawnY = Math.random() * 600; }
-        var e = new Enemy(this, spawnX, spawnY, this.player, this.enemyBullets);
+        var e = new Enemy(this, spawnX, spawnY, this.player, this.enemyBullets, this.pickSpawnEnemyOptions());
         this.enemies.push(e);
       }
     }
@@ -793,8 +894,14 @@ class GameScene extends Phaser.Scene {
       var eb = this.enemyBullets[i];
       var dist = Phaser.Math.Distance.Between(this.player.rect.x, this.player.rect.y, eb.x, eb.y);
       if (dist < 24) {
-        this.playHitEffect(this.player.rect.x, this.player.rect.y);
-        this.playImpactFlash(this.player.rect.x, this.player.rect.y, 0x60a5fa, 13, 0.0022);
+        var hx = eb.x;
+        var hy = eb.y;
+        if (eb.explosive) {
+          this.playRocketExplosion(hx, hy);
+        } else {
+          this.playHitEffect(this.player.rect.x, this.player.rect.y);
+          this.playImpactFlash(this.player.rect.x, this.player.rect.y, 0x60a5fa, 13, 0.0022);
+        }
         eb.destroy();
         this.enemyBullets.splice(i, 1);
         var dmg = eb.damage || 1;
