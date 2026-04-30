@@ -1,4 +1,5 @@
-// Enemy.js: 적 오브젝트. HP/HP바, 여러 방향 이동, 주기적 총알 발사 (전역 클래스)
+// Enemy.js — CYBER-HUD 리디자인
+// HP바: 적은 얇은 세그먼트 바, 보스는 넓은 HUD 바
 
 class Enemy {
   constructor(scene, x, y, player, enemyBulletsArray, options) {
@@ -52,7 +53,7 @@ class Enemy {
       this.rect = scene.physics.add.image(x, y, enemyTexture);
       this.rect.setDisplaySize(this.isBoss ? 52 : 34, this.isBoss ? 52 : 34);
     } else {
-      this.rect = scene.add.rectangle(x, y, 28, 28, 0xff0000);
+      this.rect = scene.add.rectangle(x, y, 28, 28, this.isBoss ? 0xff2244 : 0xff4444);
       scene.physics.add.existing(this.rect);
     }
     this.body = this.rect.body;
@@ -67,30 +68,111 @@ class Enemy {
     this.lastDirChange = 0;
     this.moveAngle = Math.atan2(player.rect.y - y, player.rect.x - x);
 
-    this.hpBarWidth = 28;
-    if (this.isBoss) this.hpBarWidth = 48;
-    this.hpBarHeight = 5;
-    this.hpBarBg = scene.add.rectangle(x, y - 22, this.hpBarWidth, this.hpBarHeight, 0x333333);
-    this.hpBarFg = scene.add.rectangle(x, y - 22, this.hpBarWidth, this.hpBarHeight, 0x00ff00);
-    this.hpBarFg.setOrigin(0.5, 0.5);
-    this.hpBarBg.setOrigin(0.5, 0.5);
+    // HP 바 (Graphics 기반, 사이버 스타일)
+    this._hpGfx = scene.add.graphics().setDepth(50);
+    this._drawHpBar();
   }
 
-  get x() {
-    return this.rect.x;
-  }
+  get x() { return this.rect.x; }
+  get y() { return this.rect.y; }
 
-  get y() {
-    return this.rect.y;
+  _drawHpBar() {
+    const gfx = this._hpGfx;
+    gfx.clear();
+    const ex = this.rect.x;
+    const ey = this.rect.y;
+
+    if (this.isBoss) {
+      // 보스: 화면 상단 넓은 HUD 바
+      const bw = 300, bh = 12;
+      const bx = (800 - bw) / 2;
+      const by = 50;
+      const ratio = this.hp / this.maxHp;
+
+      // 외곽 프레임
+      gfx.fillStyle(0x000a1a, 0.95);
+      gfx.fillRect(bx - 3, by - 3, bw + 6, bh + 6);
+      gfx.lineStyle(1, 0xff2244, 0.7);
+      gfx.strokeRect(bx - 3, by - 3, bw + 6, bh + 6);
+      gfx.lineStyle(1, 0xff2244, 0.2);
+      gfx.strokeRect(bx - 7, by - 7, bw + 14, bh + 14);
+
+      // 채워진 바 (세그먼트 10개)
+      const segCount = 10;
+      const segGap = 2;
+      const segW = (bw - segGap * (segCount - 1)) / segCount;
+      const filledCount = Math.ceil(segCount * ratio);
+
+      for (let i = 0; i < segCount; i++) {
+        const sx = bx + i * (segW + segGap);
+        if (i < filledCount) {
+          const pulse = 0.85 + 0.15 * Math.sin(Date.now() / 200 + i);
+          gfx.fillStyle(0xff2244, pulse);
+          gfx.fillRect(sx, by, segW, bh);
+          gfx.fillStyle(0xffffff, 0.12);
+          gfx.fillRect(sx, by, segW, 3);
+        } else {
+          gfx.fillStyle(0x1a0008, 1);
+          gfx.fillRect(sx, by, segW, bh);
+          gfx.lineStyle(1, 0x330011, 1);
+          gfx.strokeRect(sx, by, segW, bh);
+        }
+      }
+
+      // 보스 이름 (HP바 위)
+      if (!this._bossLabel) {
+        this._bossLabel = this.scene.add.text(400, by - 16, '[ ENEMY COMMANDER ]', {
+          fontFamily: '"Share Tech Mono", "Courier New", monospace',
+          fontSize: '10px', color: '#ff2244', letterSpacing: 4,
+        }).setOrigin(0.5, 0).setDepth(501).setScrollFactor(0);
+      }
+      if (!this._bossHpText) {
+        this._bossHpText = this.scene.add.text(400, by + bh + 6, '', {
+          fontFamily: '"Share Tech Mono", "Courier New", monospace',
+          fontSize: '9px', color: '#ff6677',
+        }).setOrigin(0.5, 0).setDepth(501).setScrollFactor(0);
+      }
+      this._bossHpText.setText(this.hp + ' / ' + this.maxHp);
+
+    } else {
+      // 일반 적: 캐릭터 위에 작은 세그먼트 바
+      const bw = this.enemyType === 'robot' ? 32 : 26;
+      const bh = 4;
+      const bx = ex - bw / 2;
+      const by = ey - (this.isBoss ? 36 : 26);
+      const ratio = this.hp / this.maxHp;
+      const segCount = this.maxHp;
+      const segGap = 1;
+      const segW = (bw - segGap * (segCount - 1)) / segCount;
+      const filledCount = Math.ceil(segCount * ratio);
+
+      // 배경
+      gfx.fillStyle(0x000a1a, 0.85);
+      gfx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+
+      for (let i = 0; i < segCount; i++) {
+        const sx = bx + i * (segW + segGap);
+        if (i < filledCount) {
+          const color = this.enemyType === 'robot' ? 0xff7722 : 0xff3344;
+          gfx.fillStyle(color, 0.95);
+          gfx.fillRect(sx, by, segW, bh);
+        } else {
+          gfx.fillStyle(0x220008, 1);
+          gfx.fillRect(sx, by, segW, bh);
+        }
+      }
+      gfx.lineStyle(1, this.enemyType === 'robot' ? 0xff7722 : 0xff3344, 0.4);
+      gfx.strokeRect(bx - 1, by - 1, bw + 2, bh + 2);
+    }
   }
 
   takeDamage(amount) {
-    this.hp = this.hp - amount;
-    if (this.hp < 0) this.hp = 0;
+    this.hp = Math.max(0, this.hp - amount);
     if (this.hp <= 0) {
       this.destroy();
       return true;
     }
+    this._drawHpBar();
     return false;
   }
 
@@ -107,8 +189,7 @@ class Enemy {
       this.moveAngle = angleToPlayer + randomOffset;
     }
 
-    var lookAngle = Math.atan2(py - ey, px - ex);
-    this.rect.rotation = lookAngle;
+    this.rect.rotation = Math.atan2(py - ey, px - ex);
 
     var vx = Math.cos(this.moveAngle) * this.speed;
     var vy = Math.sin(this.moveAngle) * this.speed;
@@ -124,17 +205,14 @@ class Enemy {
       this.rect.setTexture(this.enemyFrames[this.enemyFrameIndex]);
     }
 
-    this.hpBarBg.setPosition(ex, ey - 22);
-    this.hpBarFg.setOrigin(0, 0.5);
-    this.hpBarFg.setPosition(ex - this.hpBarWidth / 2, ey - 22);
-    this.hpBarFg.setSize(this.hpBarWidth * (this.hp / this.maxHp), this.hpBarHeight);
+    // HP바 업데이트 (보스는 매 프레임, 일반은 위치만)
+    this._drawHpBar();
 
     if (!this.isReloading && time - this.lastShotTime >= this.shootInterval) {
       this.lastShotTime = time;
       var bdx = px - ex;
       var bdy = py - ey;
-      var blen = Math.sqrt(bdx * bdx + bdy * bdy);
-      if (blen === 0) blen = 1;
+      var blen = Math.sqrt(bdx * bdx + bdy * bdy) || 1;
       bdx /= blen;
       bdy /= blen;
       var sx = ex + bdx * 20;
@@ -163,7 +241,8 @@ class Enemy {
 
   destroy() {
     this.rect.destroy();
-    this.hpBarBg.destroy();
-    this.hpBarFg.destroy();
+    if (this._hpGfx) this._hpGfx.destroy();
+    if (this._bossLabel) this._bossLabel.destroy();
+    if (this._bossHpText) this._bossHpText.destroy();
   }
 }

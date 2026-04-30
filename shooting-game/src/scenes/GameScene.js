@@ -1,10 +1,14 @@
-// GameScene.js: 메인 게임 화면. 플레이어 HP, 적, 총알, 사망 팝업 (전역변수 방식)
+// GameScene.js — CYBER-HUD 리디자인
+// 점수 HUD, 사망 팝업, 레벨/보스 배너, 게임 클리어 화면 전면 리디자인
 
 class GameScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameScene' });
   }
 
+  /* ══════════════════════════════════════
+     파티클 시스템 (기존 로직 유지)
+  ══════════════════════════════════════ */
   createParticleSystem() {
     if (!this.textures.exists('px')) {
       var g = this.make.graphics({ x: 0, y: 0, add: false });
@@ -13,86 +17,26 @@ class GameScene extends Phaser.Scene {
       g.generateTexture('px', 2, 2);
       g.destroy();
     }
-
     this.hitEmitter = null;
     this.deathEmitter = null;
     this.explosionEmitter = null;
     try {
       this.fxParticles = this.add.particles('px');
-      if (this.fxParticles && this.fxParticles.setDepth) {
-        this.fxParticles.setDepth(999);
-      }
+      if (this.fxParticles && this.fxParticles.setDepth) this.fxParticles.setDepth(999);
       if (this.fxParticles && this.fxParticles.createEmitter) {
-        this.hitEmitter = this.fxParticles.createEmitter({
-          speed: { min: 90, max: 220 },
-          angle: { min: 0, max: 360 },
-          scale: { start: 2.1, end: 0 },
-          lifespan: 260,
-          quantity: 9,
-          tint: 0x3b82f6,
-          blendMode: Phaser.BlendModes.ADD,
-          on: false
-        });
-        this.deathEmitter = this.fxParticles.createEmitter({
-          speed: { min: 120, max: 280 },
-          angle: { min: 0, max: 360 },
-          scale: { start: 2.8, end: 0 },
-          lifespan: 360,
-          quantity: 14,
-          tint: 0xef4444,
-          blendMode: Phaser.BlendModes.ADD,
-          on: false
-        });
-        this.explosionEmitter = this.fxParticles.createEmitter({
-          speed: { min: 60, max: 200 },
-          angle: { min: 0, max: 360 },
-          scale: { start: 2.4, end: 0 },
-          lifespan: 320,
-          quantity: 16,
-          tint: 0xff8833,
-          blendMode: Phaser.BlendModes.ADD,
-          on: false
-        });
+        this.hitEmitter = this.fxParticles.createEmitter({ speed: { min:90,max:220 }, angle:{min:0,max:360}, scale:{start:2.1,end:0}, lifespan:260, quantity:9, tint:0x3b82f6, blendMode:Phaser.BlendModes.ADD, on:false });
+        this.deathEmitter = this.fxParticles.createEmitter({ speed:{min:120,max:280}, angle:{min:0,max:360}, scale:{start:2.8,end:0}, lifespan:360, quantity:14, tint:0xef4444, blendMode:Phaser.BlendModes.ADD, on:false });
+        this.explosionEmitter = this.fxParticles.createEmitter({ speed:{min:60,max:200}, angle:{min:0,max:360}, scale:{start:2.4,end:0}, lifespan:320, quantity:16, tint:0xff8833, blendMode:Phaser.BlendModes.ADD, on:false });
       } else {
-        this.hitEmitter = this.add.particles(0, 0, 'px', {
-          speed: { min: 90, max: 220 },
-          angle: { min: 0, max: 360 },
-          scale: { start: 2.1, end: 0 },
-          lifespan: 260,
-          quantity: 9,
-          tint: 0x3b82f6,
-          blendMode: Phaser.BlendModes.ADD,
-          emitting: false
-        });
-        this.deathEmitter = this.add.particles(0, 0, 'px', {
-          speed: { min: 120, max: 280 },
-          angle: { min: 0, max: 360 },
-          scale: { start: 2.8, end: 0 },
-          lifespan: 360,
-          quantity: 14,
-          tint: 0xef4444,
-          blendMode: Phaser.BlendModes.ADD,
-          emitting: false
-        });
-        this.explosionEmitter = this.add.particles(0, 0, 'px', {
-          speed: { min: 60, max: 200 },
-          angle: { min: 0, max: 360 },
-          scale: { start: 2.4, end: 0 },
-          lifespan: 320,
-          quantity: 16,
-          tint: [0xffaa33, 0xff6600],
-          blendMode: Phaser.BlendModes.ADD,
-          emitting: false
-        });
+        this.hitEmitter = this.add.particles(0,0,'px',{ speed:{min:90,max:220}, angle:{min:0,max:360}, scale:{start:2.1,end:0}, lifespan:260, quantity:9, tint:0x3b82f6, blendMode:Phaser.BlendModes.ADD, emitting:false });
+        this.deathEmitter = this.add.particles(0,0,'px',{ speed:{min:120,max:280}, angle:{min:0,max:360}, scale:{start:2.8,end:0}, lifespan:360, quantity:14, tint:0xef4444, blendMode:Phaser.BlendModes.ADD, emitting:false });
+        this.explosionEmitter = this.add.particles(0,0,'px',{ speed:{min:60,max:200}, angle:{min:0,max:360}, scale:{start:2.4,end:0}, lifespan:320, quantity:16, tint:[0xffaa33,0xff6600], blendMode:Phaser.BlendModes.ADD, emitting:false });
         if (this.hitEmitter && this.hitEmitter.setDepth) this.hitEmitter.setDepth(999);
         if (this.deathEmitter && this.deathEmitter.setDepth) this.deathEmitter.setDepth(999);
         if (this.explosionEmitter && this.explosionEmitter.setDepth) this.explosionEmitter.setDepth(999);
       }
-    } catch (err) {
-      this.fxParticles = null;
-      this.hitEmitter = null;
-      this.deathEmitter = null;
-      this.explosionEmitter = null;
+    } catch(err) {
+      this.fxParticles = null; this.hitEmitter = null; this.deathEmitter = null; this.explosionEmitter = null;
     }
     this.lastHitFxTime = 0;
     this.hitFxCooldownMs = 35;
@@ -103,142 +47,68 @@ class GameScene extends Phaser.Scene {
     if (now - this.lastHitFxTime < this.hitFxCooldownMs) return;
     this.lastHitFxTime = now;
     if (!this.hitEmitter) return;
-    if (this.hitEmitter.explode) {
-      this.hitEmitter.explode(9, x, y);
-    } else if (this.hitEmitter.emitParticleAt) {
-      this.hitEmitter.emitParticleAt(x, y, 9);
-    }
+    if (this.hitEmitter.explode) this.hitEmitter.explode(9, x, y);
+    else if (this.hitEmitter.emitParticleAt) this.hitEmitter.emitParticleAt(x, y, 9);
   }
 
   playImpactFlash(x, y, color, radius, shakeIntensity) {
     var ring = this.add.circle(x, y, radius || 12, color || 0xffffff, 0.45).setDepth(998);
     ring.setStrokeStyle(2, 0xffffff, 0.9);
-    this.tweens.add({
-      targets: ring,
-      alpha: 0,
-      scale: 1.8,
-      duration: 130,
-      ease: 'Cubic.Out',
-      onComplete: function() { ring.destroy(); }
-    });
-    if (this.cameras && this.cameras.main) {
-      this.cameras.main.shake(55, shakeIntensity || 0.0015);
-    }
+    this.tweens.add({ targets: ring, alpha:0, scale:1.8, duration:130, ease:'Cubic.Out', onComplete: function() { ring.destroy(); } });
+    if (this.cameras && this.cameras.main) this.cameras.main.shake(55, shakeIntensity || 0.0015);
   }
 
   playDeathEffect(x, y) {
     if (!this.deathEmitter) return;
-    if (this.deathEmitter.explode) {
-      this.deathEmitter.explode(14, x, y);
-    } else if (this.deathEmitter.emitParticleAt) {
-      this.deathEmitter.emitParticleAt(x, y, 14);
-    }
+    if (this.deathEmitter.explode) this.deathEmitter.explode(14, x, y);
+    else if (this.deathEmitter.emitParticleAt) this.deathEmitter.emitParticleAt(x, y, 14);
   }
 
   playRocketExplosion(x, y) {
     if (this.explosionEmitter) {
-      if (this.explosionEmitter.explode) {
-        this.explosionEmitter.explode(16, x, y);
-      } else if (this.explosionEmitter.emitParticleAt) {
-        this.explosionEmitter.emitParticleAt(x, y, 16);
-      }
+      if (this.explosionEmitter.explode) this.explosionEmitter.explode(16, x, y);
+      else if (this.explosionEmitter.emitParticleAt) this.explosionEmitter.emitParticleAt(x, y, 16);
     }
     this.playImpactFlash(x, y, 0xff8800, 24, 0.0026);
     if (this.hitEmitter) {
-      if (this.hitEmitter.explode) {
-        this.hitEmitter.explode(5, x, y);
-      } else if (this.hitEmitter.emitParticleAt) {
-        this.hitEmitter.emitParticleAt(x, y, 5);
-      }
+      if (this.hitEmitter.explode) this.hitEmitter.explode(5, x, y);
+      else if (this.hitEmitter.emitParticleAt) this.hitEmitter.emitParticleAt(x, y, 5);
     }
   }
 
+  /* ══════════════════════════════════════
+     에셋 로딩 (기존 유지)
+  ══════════════════════════════════════ */
   preload() {
     if (typeof window !== 'undefined') {
       window.GAME_TEXTURES = {
-        player: 'player_survivor1',
-        playerReload: 'player_survivor1_reload',
-        enemy: 'enemy_zombie1_hold',
-        enemyReload: 'enemy_zombie1_reload',
-        enemyFrames: [
-          'enemy_zombie1_stand',
-          'enemy_zombie1_hold',
-          'enemy_zombie1_gun',
-          'enemy_zombie1_machine',
-          'enemy_zombie1_reload',
-          'enemy_zombie1_silencer'
-        ],
-        robot: 'enemy_robot1_hold',
-        robotReload: 'enemy_robot1_reload',
-        robotFrames: [
-          'enemy_robot1_stand',
-          'enemy_robot1_hold',
-          'enemy_robot1_gun',
-          'enemy_robot1_machine',
-          'enemy_robot1_reload',
-          'enemy_robot1_silencer'
-        ]
+        player: 'player_survivor1', playerReload: 'player_survivor1_reload',
+        enemy: 'enemy_zombie1_hold', enemyReload: 'enemy_zombie1_reload',
+        enemyFrames: ['enemy_zombie1_stand','enemy_zombie1_hold','enemy_zombie1_gun','enemy_zombie1_machine','enemy_zombie1_reload','enemy_zombie1_silencer'],
+        robot: 'enemy_robot1_hold', robotReload: 'enemy_robot1_reload',
+        robotFrames: ['enemy_robot1_stand','enemy_robot1_hold','enemy_robot1_gun','enemy_robot1_machine','enemy_robot1_reload','enemy_robot1_silencer']
       };
     }
-    this.load.image(
-      'player_survivor1',
-      'kenney_top-down-shooter/PNG/Survivor 1/survivor1_gun.png'
-    );
-    this.load.image(
-      'player_survivor1_reload',
-      'kenney_top-down-shooter/PNG/Survivor 1/survivor1_reload.png'
-    );
-    this.load.image(
-      'enemy_zombie1_stand',
-      'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_stand.png'
-    );
-    this.load.image(
-      'enemy_zombie1_hold',
-      'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_hold.png'
-    );
-    this.load.image(
-      'enemy_zombie1_gun',
-      'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_gun.png'
-    );
-    this.load.image(
-      'enemy_zombie1_machine',
-      'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_machine.png'
-    );
-    this.load.image(
-      'enemy_zombie1_reload',
-      'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_reload.png'
-    );
-    this.load.image(
-      'enemy_zombie1_silencer',
-      'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_silencer.png'
-    );
-    this.load.image(
-      'enemy_robot1_stand',
-      'kenney_top-down-shooter/PNG/Robot 1/robot1_stand.png'
-    );
-    this.load.image(
-      'enemy_robot1_hold',
-      'kenney_top-down-shooter/PNG/Robot 1/robot1_hold.png'
-    );
-    this.load.image(
-      'enemy_robot1_gun',
-      'kenney_top-down-shooter/PNG/Robot 1/robot1_gun.png'
-    );
-    this.load.image(
-      'enemy_robot1_machine',
-      'kenney_top-down-shooter/PNG/Robot 1/robot1_machine.png'
-    );
-    this.load.image(
-      'enemy_robot1_reload',
-      'kenney_top-down-shooter/PNG/Robot 1/robot1_reload.png'
-    );
-    this.load.image(
-      'enemy_robot1_silencer',
-      'kenney_top-down-shooter/PNG/Robot 1/robot1_silencer.png'
-    );
+    this.load.image('player_survivor1',         'kenney_top-down-shooter/PNG/Survivor 1/survivor1_gun.png');
+    this.load.image('player_survivor1_reload',  'kenney_top-down-shooter/PNG/Survivor 1/survivor1_reload.png');
+    this.load.image('enemy_zombie1_stand',      'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_stand.png');
+    this.load.image('enemy_zombie1_hold',       'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_hold.png');
+    this.load.image('enemy_zombie1_gun',        'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_gun.png');
+    this.load.image('enemy_zombie1_machine',    'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_machine.png');
+    this.load.image('enemy_zombie1_reload',     'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_reload.png');
+    this.load.image('enemy_zombie1_silencer',   'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_silencer.png');
+    this.load.image('enemy_robot1_stand',       'kenney_top-down-shooter/PNG/Robot 1/robot1_stand.png');
+    this.load.image('enemy_robot1_hold',        'kenney_top-down-shooter/PNG/Robot 1/robot1_hold.png');
+    this.load.image('enemy_robot1_gun',         'kenney_top-down-shooter/PNG/Robot 1/robot1_gun.png');
+    this.load.image('enemy_robot1_machine',     'kenney_top-down-shooter/PNG/Robot 1/robot1_machine.png');
+    this.load.image('enemy_robot1_reload',      'kenney_top-down-shooter/PNG/Robot 1/robot1_reload.png');
+    this.load.image('enemy_robot1_silencer',    'kenney_top-down-shooter/PNG/Robot 1/robot1_silencer.png');
     this.load.image('game_bg', 'Background.png');
   }
 
+  /* ══════════════════════════════════════
+     씬 생성
+  ══════════════════════════════════════ */
   create(data) {
     this.gameOver = false;
     this.score = 0;
@@ -251,8 +121,6 @@ class GameScene extends Phaser.Scene {
     this.levelBanner = null;
     this.bossBanner = null;
     this.bossBannerGroup = null;
-
-    // 4레벨 관련 변수
     this.level4BossCount = 0;
     this.level4BossKills = 0;
     this.level4Cleared = false;
@@ -260,12 +128,15 @@ class GameScene extends Phaser.Scene {
 
     var sel = (typeof window !== 'undefined' && window.SELECTION) || { character: 'normal', abilities: [] };
 
+    // 배경
     this.bgImage = this.add.image(400, 300, 'game_bg');
     this.bgImage.setDisplaySize(800, 600);
     this.bgImage.setDepth(-1000);
 
-    this.createParticleSystem();
+    // 반투명 그리드 오버레이
+    this._drawGridOverlay();
 
+    this.createParticleSystem();
     this.player = new Player(this, 400, 300, sel);
 
     this.keys = this.input.keyboard.addKeys({
@@ -286,25 +157,20 @@ class GameScene extends Phaser.Scene {
     this.setupLevel(this.currentLevel);
     this.spawnInitialEnemies(this.currentLevel === 1 ? 3 : 4, this.currentLevel === 1 ? 4 : 5);
 
-    this.scoreText = this.add.text(20, 20, '점수: 0', { fontSize: 24, color: '#fff' });
+    // HUD 초기화
+    this._buildHUD();
     this.showLevelBanner(this.currentLevel);
 
     var self = this;
     this.input.on('pointerdown', function(pointer) {
       if (self.gameOver) return;
       if (!self.player.canShoot(self.time.now)) return;
-      var px = self.player.rect.x;
-      var py = self.player.rect.y;
-      var mx = pointer.worldX;
-      var my = pointer.worldY;
-      var dx = mx - px;
-      var dy = my - py;
-      var len = Math.sqrt(dx * dx + dy * dy);
-      if (len === 0) len = 1;
-      dx /= len;
-      dy /= len;
-
-      var shots = [{ dx: dx, dy: dy }];
+      var px = self.player.rect.x, py = self.player.rect.y;
+      var mx = pointer.worldX, my = pointer.worldY;
+      var dx = mx - px, dy = my - py;
+      var len = Math.sqrt(dx*dx + dy*dy) || 1;
+      dx /= len; dy /= len;
+      var shots = [{ dx, dy }];
       if (sel.abilities && sel.abilities.indexOf('doubleShot') >= 0) {
         var a = Math.atan2(dy, dx) + 0.2;
         shots.push({ dx: Math.cos(a), dy: Math.sin(a) });
@@ -312,167 +178,275 @@ class GameScene extends Phaser.Scene {
       for (var s = 0; s < shots.length; s++) {
         var sx = px + shots[s].dx * 22;
         var sy = py + shots[s].dy * 22;
-        var bullet = new Bullet(self, sx, sy, shots[s].dx, shots[s].dy, self.bulletSpeed);
-        self.bullets.push(bullet);
+        self.bullets.push(new Bullet(self, sx, sy, shots[s].dx, shots[s].dy, self.bulletSpeed));
       }
       self.player.registerShot(self.time.now);
     });
   }
 
+  /* ══════════════════════════════════════
+     HUD 빌더
+  ══════════════════════════════════════ */
+  _drawGridOverlay() {
+    const gfx = this.add.graphics().setDepth(-500).setScrollFactor(0);
+    gfx.lineStyle(1, 0x001a3a, 0.25);
+    for (let y = 0; y < 600; y += 40) gfx.lineBetween(0, y, 800, y);
+    for (let x = 0; x < 800; x += 40) gfx.lineBetween(x, 0, x, 600);
+  }
+
+  _buildHUD() {
+    const W = 800;
+
+    /* 상단 HUD 바 */
+    const hudGfx = this.add.graphics().setDepth(400).setScrollFactor(0);
+    hudGfx.fillStyle(0x000a1a, 0.88);
+    hudGfx.fillRect(0, 0, W, 46);
+    hudGfx.lineStyle(1, 0x00d4ff, 0.25);
+    hudGfx.lineBetween(0, 46, W, 46);
+    hudGfx.lineStyle(1, 0x00d4ff, 0.08);
+    hudGfx.lineBetween(0, 47, W, 47);
+
+    // HP 라벨
+    this.add.text(20, 16, 'HP', {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '9px', color: '#335566', letterSpacing: 4,
+    }).setDepth(500).setScrollFactor(0);
+
+    /* 우측 점수 HUD */
+    this._scoreGfx = this.add.graphics().setDepth(400).setScrollFactor(0);
+    this._scoreLabelTxt = this.add.text(W - 160, 10, 'SCORE', {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '9px', color: '#335566', letterSpacing: 4,
+    }).setDepth(500).setScrollFactor(0);
+    this._scoreValueTxt = this.add.text(W - 160, 22, '000000', {
+      fontFamily: '"Orbitron", "Courier New", monospace',
+      fontSize: '16px', color: '#00d4ff', letterSpacing: 2,
+    }).setDepth(500).setScrollFactor(0);
+
+    /* 레벨 표시 (중앙) */
+    this._levelLabelTxt = this.add.text(W / 2, 10, 'LEVEL', {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '9px', color: '#335566', letterSpacing: 4,
+    }).setOrigin(0.5, 0).setDepth(500).setScrollFactor(0);
+    this._levelValueTxt = this.add.text(W / 2, 22, '01', {
+      fontFamily: '"Orbitron", "Courier New", monospace',
+      fontSize: '14px', color: '#7fbbcc', letterSpacing: 2,
+    }).setOrigin(0.5, 0).setDepth(500).setScrollFactor(0);
+
+    // HUD 코너 마커
+    const cGfx = this.add.graphics().setDepth(400).setScrollFactor(0);
+    cGfx.lineStyle(2, 0x00d4ff, 0.5);
+    const len = 14, pad = 8;
+    // 좌상
+    cGfx.lineBetween(pad, pad, pad + len, pad);
+    cGfx.lineBetween(pad, pad, pad, pad + len);
+    // 우상
+    cGfx.lineBetween(W - pad, pad, W - pad - len, pad);
+    cGfx.lineBetween(W - pad, pad, W - pad, pad + len);
+
+    this._updateScoreHUD();
+  }
+
+  _updateScoreHUD() {
+    // 점수를 6자리 0패딩
+    const s = String(this.score).padStart(6, '0');
+    if (this._scoreValueTxt) this._scoreValueTxt.setText(s);
+    // 레벨
+    if (this._levelValueTxt) {
+      const lvColors = { 1: '#7fbbcc', 2: '#ffaa00', 3: '#ff4444', 4: '#ff2244' };
+      this._levelValueTxt.setText(String(this.currentLevel).padStart(2, '0'));
+      this._levelValueTxt.setStyle({ color: lvColors[this.currentLevel] || '#ffffff' });
+    }
+  }
+
+  /* ══════════════════════════════════════
+     사망 팝업 — CYBER HUD 스타일
+  ══════════════════════════════════════ */
   showDeathPopup() {
     this.gameOver = true;
-    var w = 800, h = 600;
-    var bg = this.add.rectangle(400, 300, w, h, 0x000000, 0.75);
-    var panel = this.add.rectangle(400, 280, 360, 200, 0x2a2a3e);
-    var title = this.add.text(400, 200, '게임 오버', { fontSize: 32, color: '#fff' }).setOrigin(0.5);
-    var finalScore = this.add.text(400, 245, '최종 점수: ' + this.score, { fontSize: 22, color: '#fbbf24' }).setOrigin(0.5);
+    const W = 800, H = 600;
+    const cx = W / 2, cy = H / 2;
+    const pw = 400, ph = 240;
 
-    var msgText;
-    if (this.currentLevel === 4) {
-      msgText = '4레벨 사망: 1레벨부터 다시 시작됩니다.';
-    } else if (this.currentLevel >= 2) {
-      msgText = '2~3레벨 사망: 1레벨부터 다시 시작됩니다.';
-    } else {
-      msgText = '다시 하시겠습니까?';
-    }
-    var msg = this.add.text(400, 280, msgText, { fontSize: 18, color: '#ccc' }).setOrigin(0.5);
+    // 반투명 오버레이
+    const overlay = this.add.rectangle(cx, cy, W, H, 0x000000, 0.7).setDepth(600).setScrollFactor(0);
 
-    var btnRestart = this.add.rectangle(280, 355, 140, 44, 0x4ade80).setInteractive({ useHandCursor: true });
-    var txtRestart = this.add.text(280, 355, '다시 시작', { fontSize: 18, color: '#000' }).setOrigin(0.5);
-    btnRestart.on('pointerdown', function() {
+    // 팝업 프레임
+    const frameGfx = this.add.graphics().setDepth(601).setScrollFactor(0);
+    frameGfx.fillStyle(0x000a1a, 0.97);
+    frameGfx.fillRect(cx - pw/2, cy - ph/2, pw, ph);
+    frameGfx.lineStyle(2, 0xff2244, 0.9);
+    frameGfx.strokeRect(cx - pw/2, cy - ph/2, pw, ph);
+    frameGfx.lineStyle(1, 0xff2244, 0.2);
+    frameGfx.strokeRect(cx - pw/2 - 4, cy - ph/2 - 4, pw + 8, ph + 8);
+    // 상단 강조선
+    frameGfx.lineStyle(3, 0xff2244, 1);
+    frameGfx.lineBetween(cx - pw/2, cy - ph/2, cx + pw/2, cy - ph/2);
+    // 코너 마커
+    const len = 12;
+    frameGfx.lineStyle(1, 0xff2244, 0.7);
+    [[cx - pw/2 + 8, cy - ph/2 + 8], [cx + pw/2 - 8, cy - ph/2 + 8],
+     [cx - pw/2 + 8, cy + ph/2 - 8], [cx + pw/2 - 8, cy + ph/2 - 8]].forEach(([x, y], i) => {
+      const sx = i % 2 === 0 ? 1 : -1;
+      const sy = i < 2 ? 1 : -1;
+      frameGfx.lineBetween(x, y, x + len * sx, y);
+      frameGfx.lineBetween(x, y, x, y + len * sy);
+    });
+
+    // 태그
+    this.add.text(cx, cy - ph/2 + 12, '[ MISSION FAILED ]', {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '10px', color: '#ff2244', letterSpacing: 4,
+    }).setOrigin(0.5, 0).setDepth(602).setScrollFactor(0);
+
+    // 타이틀
+    this.add.text(cx, cy - 60, 'UNIT DOWN', {
+      fontFamily: '"Orbitron", "Courier New", monospace',
+      fontSize: '32px', color: '#ff2244', letterSpacing: 6,
+      stroke: '#330000', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(602).setScrollFactor(0);
+
+    // 점수
+    this.add.text(cx, cy - 18, 'FINAL SCORE  ' + String(this.score).padStart(6, '0'), {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '14px', color: '#ffaa00', letterSpacing: 3,
+    }).setOrigin(0.5).setDepth(602).setScrollFactor(0);
+
+    // 메시지
+    var msgText = this.currentLevel >= 2
+      ? 'LEVEL ' + this.currentLevel + ' — RETURNING TO BASE FROM LEVEL 1'
+      : 'RETRY MISSION?';
+    this.add.text(cx, cy + 14, msgText, {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '11px', color: '#556677', letterSpacing: 2,
+    }).setOrigin(0.5).setDepth(602).setScrollFactor(0);
+
+    // 버튼들
+    this._buildPopupButton(cx - 80, cy + 72, 140, 40, '▶ RETRY', 0x00d4ff, '#000000', () => {
       this.scene.restart({ level: 1 });
-    }, this);
-    btnRestart.on('pointerover', function() { btnRestart.setFillStyle(0x86efac); });
-    btnRestart.on('pointerout', function() { btnRestart.setFillStyle(0x4ade80); });
-
-    var btnTitle = this.add.rectangle(520, 355, 140, 44, 0xf87171).setInteractive({ useHandCursor: true });
-    var txtTitle = this.add.text(520, 355, '초기화면으로', { fontSize: 18, color: '#fff' }).setOrigin(0.5);
-    btnTitle.on('pointerdown', function() {
+    }, 0x00ffff, 602);
+    this._buildPopupButton(cx + 80, cy + 72, 130, 40, '⌂ TITLE', 0xff2244, '#ffffff', () => {
       this.scene.start('TitleScene');
-    }, this);
-    btnTitle.on('pointerover', function() { btnTitle.setFillStyle(0xfca5a5); });
-    btnTitle.on('pointerout', function() { btnTitle.setFillStyle(0xf87171); });
+    }, 0xff6677, 602);
   }
 
-  showBanner(text, color, durationMs) {
-    var t = this.add.text(400, 90, text, { fontSize: 34, color: color || '#fff' })
-      .setOrigin(0.5)
-      .setDepth(200)
-      .setAlpha(0.95);
-    this.time.delayedCall(durationMs || 1200, function() {
-      if (t && t.destroy) t.destroy();
-    }, null, this);
-    return t;
+  _buildPopupButton(bx, by, bw, bh, label, fillColor, textColor, onClick, hoverColor, depth) {
+    const gfx = this.add.graphics().setDepth(depth).setScrollFactor(0);
+    const draw = (hover) => {
+      gfx.clear();
+      gfx.fillStyle(hover ? hoverColor : fillColor, hover ? 0.25 : 0.15);
+      gfx.fillRect(bx - bw/2, by - bh/2, bw, bh);
+      gfx.lineStyle(1, hover ? hoverColor : fillColor, hover ? 1 : 0.8);
+      gfx.strokeRect(bx - bw/2, by - bh/2, bw, bh);
+    };
+    draw(false);
+    const txt = this.add.text(bx, by, label, {
+      fontFamily: '"Orbitron", "Courier New", monospace',
+      fontSize: '12px', color: textColor === '#000000' ? '#' + fillColor.toString(16).padStart(6, '0') : textColor,
+      letterSpacing: 3,
+    }).setOrigin(0.5).setDepth(depth + 1).setScrollFactor(0);
+    const hit = this.add.rectangle(bx, by, bw, bh).setDepth(depth + 2).setScrollFactor(0).setInteractive({ useHandCursor: true });
+    hit.on('pointerover', () => { draw(true); });
+    hit.on('pointerout', () => { draw(false); });
+    hit.on('pointerdown', onClick);
   }
 
+  /* ══════════════════════════════════════
+     레벨 배너
+  ══════════════════════════════════════ */
   showLevelBanner(level) {
     if (this.levelBanner && this.levelBanner.destroy) this.levelBanner.destroy();
-    var color = level === 1 ? '#7dd3fc'
-      : level === 2 ? '#f59e0b'
-      : level === 3 ? '#ef4444'
-      : '#7f1d1d'; // 4레벨: 진한 다크레드
-    this.levelBanner = this.showBanner('LEVEL ' + level, color, 1200);
+    const colors = { 1: '#00d4ff', 2: '#ffaa00', 3: '#ff6644', 4: '#ff2244' };
+    const labels = { 1: 'SECTOR 1 — CLEARED FOR ENTRY', 2: 'SECTOR 2 — HOSTILES ESCALATING', 3: 'SECTOR 3 — HIGH THREAT ZONE', 4: 'SECTOR 4 — COMMANDER ENGAGED' };
+    const color = colors[level] || '#ffffff';
+    const sublabel = labels[level] || '';
+
+    const g = this.add.container(400, 90).setDepth(300).setScrollFactor(0);
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x000a1a, 0.85);
+    bg.fillRect(-200, -22, 400, 44);
+    bg.lineStyle(1, parseInt(color.replace('#', ''), 16), 0.7);
+    bg.strokeRect(-200, -22, 400, 44);
+    bg.lineStyle(3, parseInt(color.replace('#', ''), 16), 1);
+    bg.lineBetween(-200, -22, 200, -22);
+
+    const title = this.add.text(0, -8, 'LEVEL ' + level, {
+      fontFamily: '"Orbitron", "Courier New", monospace',
+      fontSize: '20px', color, letterSpacing: 8,
+    }).setOrigin(0.5, 0);
+
+    const sub = this.add.text(0, 14, sublabel, {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '9px', color: '#556677', letterSpacing: 3,
+    }).setOrigin(0.5, 0);
+
+    g.add([bg, title, sub]);
+    g.setAlpha(0).setScale(0.85);
+    this.tweens.add({ targets: g, alpha: 1, scaleX: 1, scaleY: 1, duration: 350, ease: 'Back.easeOut' });
+    this.time.delayedCall(1400, () => {
+      this.tweens.add({ targets: g, alpha: 0, y: 70, duration: 300, onComplete: () => { if (g.destroy) g.destroy(true); } });
+    });
+
+    this._updateScoreHUD();
+    this.levelBanner = g;
+    return g;
   }
 
+  /* ══════════════════════════════════════
+     보스 배너
+  ══════════════════════════════════════ */
   clearBossBannerGroup() {
-    if (this.bossBannerGroup && this.bossBannerGroup.destroy) {
-      this.bossBannerGroup.destroy(true);
-    }
+    if (this.bossBannerGroup && this.bossBannerGroup.destroy) this.bossBannerGroup.destroy(true);
     this.bossBannerGroup = null;
   }
 
   showBossAppearBanner() {
     this.clearBossBannerGroup();
-    var cx = 400;
-    var cy = 130;
-    var g = this.add.container(cx, cy);
-    g.setDepth(260);
+    const cx = 400, cy = 140;
 
-    var mainTitle = 'BOSS 등장!';
-    var subText = '>>> 보스가 나타났습니다! <<<';
-    var titleFontPx = '52px';
-    if (this.currentLevel === 3) {
-      mainTitle = '첫번째 보스 등장!';
-      subText = '>>> 첫 번째 보스가 나타났습니다! <<<';
-      titleFontPx = '46px';
-    } else if (this.currentLevel === 4) {
-      if (this.level4BossCount === 1) {
-        mainTitle = '두 번째 보스 등장!';
-        subText = '>>> 두 번째 보스가 나타났습니다! <<<';
-        titleFontPx = '46px';
-      } else if (this.level4BossCount >= 2) {
-        mainTitle = '최종 보스 등장!';
-        subText = '>>> 최종 보스가 나타났습니다! <<<';
-        titleFontPx = '46px';
-      }
-    }
+    const titles = {
+      3: ['COMMANDER DETECTED', '>>> FIRST BOSS ENGAGED <<<'],
+      '4a': ['ENEMY COMMANDER II', '>>> SECOND COMMANDER APPROACHING <<<'],
+      '4b': ['FINAL BOSS', '>>> ULTIMATE THREAT INCOMING <<<'],
+    };
+    let key = String(this.currentLevel);
+    if (this.currentLevel === 4) key = this.level4BossCount >= 2 ? '4b' : '4a';
+    const [mainTitle, subText] = titles[key] || ['BOSS DETECTED', '>>> HOSTILE COMMANDER <<<'];
 
-    var glow = this.add.text(0, 0, mainTitle, {
-      fontFamily: 'Arial Black, Arial, sans-serif',
-      fontSize: titleFontPx,
-      color: '#7f1d1d',
-      stroke: '#450a0a',
-      strokeThickness: 14
+    const g = this.add.container(cx, cy).setDepth(300).setScrollFactor(0);
+
+    const bgW = 460, bgH = 80;
+    const bgGfx = this.add.graphics();
+    bgGfx.fillStyle(0x0a0000, 0.95);
+    bgGfx.fillRect(-bgW/2, -bgH/2, bgW, bgH);
+    bgGfx.lineStyle(2, 0xff2244, 0.9);
+    bgGfx.strokeRect(-bgW/2, -bgH/2, bgW, bgH);
+    bgGfx.lineStyle(3, 0xff2244, 1);
+    bgGfx.lineBetween(-bgW/2, -bgH/2, bgW/2, -bgH/2);
+
+    const warn = this.add.text(-bgW/2 + 12, -bgH/2 + 8, '⚠ ALERT', {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '9px', color: '#ff2244', letterSpacing: 4,
+    });
+    const title = this.add.text(0, -6, mainTitle, {
+      fontFamily: '"Orbitron", "Courier New", monospace',
+      fontSize: '22px', color: '#ff4466', letterSpacing: 5,
+    }).setOrigin(0.5);
+    const sub = this.add.text(0, 22, subText, {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '10px', color: '#ffaa00', letterSpacing: 3,
     }).setOrigin(0.5);
 
-    var title = this.add.text(0, 0, mainTitle, {
-      fontFamily: 'Arial Black, Arial, sans-serif',
-      fontSize: titleFontPx,
-      color: '#ff6b6b',
-      stroke: '#fef2f2',
-      strokeThickness: 6,
-      shadow: { offsetX: 4, offsetY: 4, color: '#000000', blur: 16, stroke: true, fill: true }
-    }).setOrigin(0.5);
+    g.add([bgGfx, warn, title, sub]);
+    g.setAlpha(0).setScale(0.7);
 
-    var sub = this.add.text(0, 48, subText, {
-      fontFamily: 'Malgun Gothic, sans-serif',
-      fontSize: '20px',
-      color: '#fde68a',
-      stroke: '#422006',
-      strokeThickness: 4
-    }).setOrigin(0.5);
+    this.tweens.add({ targets: g, alpha:1, scaleX:1, scaleY:1, duration:500, ease:'Back.easeOut' });
+    this.tweens.add({ targets: g, x: { from: cx - 8, to: cx + 8 }, duration: 60, yoyo: true, repeat: 6 });
 
-    g.add([glow, title, sub]);
-    g.setScale(0.15);
-    g.setAlpha(0);
-
-    this.tweens.add({
-      targets: g,
-      scaleX: 1,
-      scaleY: 1,
-      alpha: 1,
-      duration: 550,
-      ease: 'Back.easeOut'
+    this.time.delayedCall(2400, () => {
+      this.tweens.add({ targets: g, alpha: 0, y: cy - 20, duration: 400, onComplete: () => { if (g.destroy) g.destroy(true); } });
     });
-    this.tweens.add({
-      targets: g,
-      angle: { from: -4, to: 4 },
-      duration: 180,
-      yoyo: true,
-      repeat: 5,
-      ease: 'Sine.easeInOut'
-    });
-    this.tweens.add({
-      targets: title,
-      scaleX: { from: 1, to: 1.06 },
-      scaleY: { from: 1, to: 1.06 },
-      duration: 400,
-      yoyo: true,
-      repeat: 2,
-      ease: 'Sine.easeInOut'
-    });
-    this.time.delayedCall(2200, function() {
-      this.tweens.add({
-        targets: g,
-        alpha: 0,
-        scaleX: 1.15,
-        scaleY: 1.15,
-        y: cy - 30,
-        duration: 450,
-        ease: 'Power2',
-        onComplete: function() { if (g && g.destroy) g.destroy(true); }
-      });
-    }, null, this);
 
     this.bossBannerGroup = g;
     this.bossBanner = g;
@@ -480,211 +454,142 @@ class GameScene extends Phaser.Scene {
 
   showBossDefeatBanner() {
     this.clearBossBannerGroup();
-    var cx = 400;
-    var cy = 160;
-    var g = this.add.container(cx, cy);
-    g.setDepth(260);
+    const cx = 400, cy = 140;
+    const g = this.add.container(cx, cy).setDepth(300).setScrollFactor(0);
 
-    var glow = this.add.text(0, 0, '보스 격파!', {
-      fontFamily: 'Arial Black, Arial, sans-serif',
-      fontSize: '48px',
-      color: '#14532d',
-      stroke: '#052e16',
-      strokeThickness: 12
+    const bgW = 400, bgH = 70;
+    const bgGfx = this.add.graphics();
+    bgGfx.fillStyle(0x001a0a, 0.95);
+    bgGfx.fillRect(-bgW/2, -bgH/2, bgW, bgH);
+    bgGfx.lineStyle(2, 0x00ff88, 0.9);
+    bgGfx.strokeRect(-bgW/2, -bgH/2, bgW, bgH);
+    bgGfx.lineStyle(3, 0x00ff88, 1);
+    bgGfx.lineBetween(-bgW/2, -bgH/2, bgW/2, -bgH/2);
+
+    const tag = this.add.text(-bgW/2 + 12, -bgH/2 + 8, '✓ NEUTRALIZED', {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '9px', color: '#00ff88', letterSpacing: 4,
+    });
+    const title = this.add.text(0, -2, 'COMMANDER DOWN', {
+      fontFamily: '"Orbitron", "Courier New", monospace',
+      fontSize: '20px', color: '#00ffaa', letterSpacing: 5,
+    }).setOrigin(0.5);
+    const sub = this.add.text(0, 20, '★ TARGET ELIMINATED ★', {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '10px', color: '#ffcc00', letterSpacing: 3,
     }).setOrigin(0.5);
 
-    var title = this.add.text(0, 0, '보스 격파!', {
-      fontFamily: 'Arial Black, Arial, sans-serif',
-      fontSize: '48px',
-      color: '#4ade80',
-      stroke: '#ecfdf5',
-      strokeThickness: 5,
-      shadow: { offsetX: 3, offsetY: 3, color: '#000000', blur: 14, stroke: true, fill: true }
-    }).setOrigin(0.5);
-
-    var sub = this.add.text(0, 44, '*** 위대한 승리! ***', {
-      fontFamily: 'Malgun Gothic, sans-serif',
-      fontSize: '22px',
-      color: '#fef08a',
-      stroke: '#713f12',
-      strokeThickness: 4
-    }).setOrigin(0.5);
-
-    g.add([glow, title, sub]);
-    g.setScale(0.2);
-    g.setAlpha(0);
-
-    this.tweens.add({
-      targets: g,
-      scaleX: 1,
-      scaleY: 1,
-      alpha: 1,
-      duration: 480,
-      ease: 'Back.easeOut'
+    g.add([bgGfx, tag, title, sub]);
+    g.setAlpha(0).setScale(0.7);
+    this.tweens.add({ targets: g, alpha:1, scaleX:1, scaleY:1, duration:450, ease:'Back.easeOut' });
+    this.time.delayedCall(3000, () => {
+      this.tweens.add({ targets: g, alpha:0, scaleX:1.1, scaleY:1.1, duration:400, onComplete: () => { if (g.destroy) g.destroy(true); } });
     });
-    this.tweens.add({
-      targets: title,
-      angle: { from: -8, to: 8 },
-      duration: 120,
-      yoyo: true,
-      repeat: 6,
-      ease: 'Sine.easeInOut'
-    });
-    this.tweens.add({
-      targets: sub,
-      scaleX: { from: 1, to: 1.12 },
-      scaleY: { from: 1, to: 1.12 },
-      duration: 350,
-      yoyo: true,
-      repeat: 3
-    });
-    this.time.delayedCall(2800, function() {
-      this.tweens.add({
-        targets: g,
-        alpha: 0,
-        scaleX: 1.2,
-        scaleY: 1.2,
-        duration: 500,
-        ease: 'Power2',
-        onComplete: function() { if (g && g.destroy) g.destroy(true); }
-      });
-    }, null, this);
 
     this.bossBannerGroup = g;
     this.bossBanner = g;
   }
 
+  /* ══════════════════════════════════════
+     게임 클리어 화면
+  ══════════════════════════════════════ */
   showFinalClearBanner() {
     this.gameOver = true;
-    var cx = 400, cy = 200;
-    var overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.6).setDepth(258);
-    var g = this.add.container(cx, cy).setDepth(260);
+    const W = 800, H = 600;
+    const cx = W/2, cy = H/2;
 
-    var glow = this.add.text(0, 0, 'GAME CLEAR!', {
-      fontFamily: 'Arial Black, Arial, sans-serif',
-      fontSize: '58px',
-      color: '#1a1a00',
-      stroke: '#000000',
-      strokeThickness: 18
-    }).setOrigin(0.5);
+    const overlay = this.add.rectangle(cx, cy, W, H, 0x000000, 0.8).setDepth(600).setScrollFactor(0);
 
-    var title = this.add.text(0, 0, 'GAME CLEAR!', {
-      fontFamily: 'Arial Black, Arial, sans-serif',
-      fontSize: '58px',
-      color: '#fde047',
-      stroke: '#fef9c3',
-      strokeThickness: 6,
-      shadow: { offsetX: 4, offsetY: 4, color: '#000000', blur: 18, stroke: true, fill: true }
-    }).setOrigin(0.5);
+    // 클리어 패널
+    const pw = 480, ph = 280;
+    const frameGfx = this.add.graphics().setDepth(601).setScrollFactor(0);
+    frameGfx.fillStyle(0x000d0a, 0.98);
+    frameGfx.fillRect(cx - pw/2, cy - ph/2, pw, ph);
+    frameGfx.lineStyle(2, 0x00ffaa, 0.9);
+    frameGfx.strokeRect(cx - pw/2, cy - ph/2, pw, ph);
+    frameGfx.lineStyle(1, 0x00ffaa, 0.2);
+    frameGfx.strokeRect(cx - pw/2 - 5, cy - ph/2 - 5, pw + 10, ph + 10);
+    frameGfx.lineStyle(3, 0x00ffaa, 1);
+    frameGfx.lineBetween(cx - pw/2, cy - ph/2, cx + pw/2, cy - ph/2);
 
-    var sub = this.add.text(0, 62, '모든 보스를 처치했습니다!', {
-      fontFamily: 'Malgun Gothic, sans-serif',
-      fontSize: '24px',
-      color: '#ffffff',
-      stroke: '#1e3a5f',
-      strokeThickness: 5
-    }).setOrigin(0.5);
+    this.add.text(cx, cy - ph/2 + 12, '[ MISSION COMPLETE ]', {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '10px', color: '#00ffaa', letterSpacing: 4,
+    }).setOrigin(0.5, 0).setDepth(602).setScrollFactor(0);
 
-    var scoreMsg = this.add.text(0, 100, '최종 점수: ' + this.score, {
-      fontFamily: 'Malgun Gothic, sans-serif',
-      fontSize: '22px',
-      color: '#fbbf24',
-      stroke: '#422006',
-      strokeThickness: 4
-    }).setOrigin(0.5);
+    const clearTitle = this.add.text(cx, cy - 70, 'OPERATION\nCOMPLETE', {
+      fontFamily: '"Orbitron", "Courier New", monospace',
+      fontSize: '36px', color: '#ffd700', letterSpacing: 6,
+      align: 'center', lineSpacing: -4,
+      stroke: '#332200', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(602).setScrollFactor(0).setAlpha(0);
 
-    g.add([glow, title, sub, scoreMsg]);
-    g.setScale(0.1);
-    g.setAlpha(0);
+    this.add.text(cx, cy + 14, '전 구역 사령관 제거 완료', {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '12px', color: '#88aacc', letterSpacing: 3,
+    }).setOrigin(0.5).setDepth(602).setScrollFactor(0);
 
-    this.tweens.add({
-      targets: g,
-      scaleX: 1,
-      scaleY: 1,
-      alpha: 1,
-      duration: 650,
-      ease: 'Back.easeOut'
+    this.add.text(cx, cy + 36, 'FINAL SCORE  ' + String(this.score).padStart(6, '0'), {
+      fontFamily: '"Orbitron", "Courier New", monospace',
+      fontSize: '18px', color: '#ffaa00', letterSpacing: 4,
+    }).setOrigin(0.5).setDepth(602).setScrollFactor(0);
+
+    this.tweens.add({ targets: clearTitle, alpha:1, duration: 700, delay: 300, ease:'Power2' });
+
+    // 별 파티클 효과 (간단)
+    for (let i = 0; i < 8; i++) {
+      this.time.delayedCall(i * 200, () => {
+        const star = this.add.text(
+          cx + (Math.random() - 0.5) * 400,
+          cy + (Math.random() - 0.5) * 200,
+          '★', { fontSize: '14px', color: '#ffd700' }
+        ).setDepth(603).setScrollFactor(0).setAlpha(0);
+        this.tweens.add({ targets: star, alpha: 1, y: star.y - 30, duration: 600, ease:'Power2', yoyo: true, onComplete: () => star.destroy() });
+      });
+    }
+
+    this.time.delayedCall(2200, () => {
+      this._buildPopupButton(cx - 90, cy + 98, 150, 42, '▶ RETRY', 0x00d4ff, '#000000', () => {
+        this.scene.restart({ level: 1 });
+      }, 0x00ffff, 603);
+      this._buildPopupButton(cx + 90, cy + 98, 150, 42, '⌂ TITLE', 0x00ffaa, '#000000', () => {
+        this.scene.start('TitleScene');
+      }, 0x00ffcc, 603);
     });
-    this.tweens.add({
-      targets: title,
-      angle: { from: -5, to: 5 },
-      duration: 200,
-      yoyo: true,
-      repeat: 4,
-      ease: 'Sine.easeInOut'
-    });
-
-    // 2.5초 후 버튼 표시
-    this.time.delayedCall(2500, function() {
-      var btnRestart = this.add.rectangle(300, 460, 160, 48, 0x4ade80).setDepth(261).setInteractive({ useHandCursor: true });
-      var txtRestart = this.add.text(300, 460, '다시 시작', { fontSize: 20, color: '#000' }).setOrigin(0.5).setDepth(262);
-      btnRestart.on('pointerdown', function() { this.scene.restart({ level: 1 }); }, this);
-      btnRestart.on('pointerover', function() { btnRestart.setFillStyle(0x86efac); });
-      btnRestart.on('pointerout', function() { btnRestart.setFillStyle(0x4ade80); });
-
-      var btnTitle = this.add.rectangle(500, 460, 160, 48, 0x60a5fa).setDepth(261).setInteractive({ useHandCursor: true });
-      var txtTitle = this.add.text(500, 460, '초기화면으로', { fontSize: 20, color: '#fff' }).setOrigin(0.5).setDepth(262);
-      btnTitle.on('pointerdown', function() { this.scene.start('TitleScene'); }, this);
-      btnTitle.on('pointerover', function() { btnTitle.setFillStyle(0x93c5fd); });
-      btnTitle.on('pointerout', function() { btnTitle.setFillStyle(0x60a5fa); });
-    }, null, this);
   }
 
+  /* ══════════════════════════════════════
+     레벨 설정 / 스폰 로직 (기존 유지)
+  ══════════════════════════════════════ */
   setupLevel(level) {
-    if (level === 1) {
-      this.spawnInterval = 5000;
-      this.spawnIntervalMin = 1200;
-    } else if (level === 2) {
-      this.spawnInterval = 4200;
-      this.spawnIntervalMin = 900;
-    } else if (level === 3) {
-      this.spawnInterval = 4200;
-      this.spawnIntervalMin = 900;
-    } else {
-      // 레벨 4: 소폭 강화
-      this.spawnInterval = 3500;
-      this.spawnIntervalMin = 800;
-    }
-    // 레벨별 최대 적 수: 1→4, 2→5, 3→6, 4→7
+    if (level === 1)      { this.spawnInterval = 5000; this.spawnIntervalMin = 1200; }
+    else if (level === 2) { this.spawnInterval = 4200; this.spawnIntervalMin = 900; }
+    else if (level === 3) { this.spawnInterval = 4200; this.spawnIntervalMin = 900; }
+    else                  { this.spawnInterval = 3500; this.spawnIntervalMin = 800; }
     this.maxEnemies = 3 + level;
   }
 
   pickSpawnEnemyOptions() {
-    if (this.currentLevel >= 2 && Math.random() < 0.34) {
-      return { enemyType: 'robot' };
-    }
+    if (this.currentLevel >= 2 && Math.random() < 0.34) return { enemyType: 'robot' };
     return { enemyType: 'zombie' };
   }
 
   spawnInitialEnemies(minCount, maxCount) {
-    var initialCount = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
-    for (var i = 0; i < initialCount; i++) {
+    var c = minCount + Math.floor(Math.random() * (maxCount - minCount + 1));
+    for (var i = 0; i < c; i++) {
       if (this.enemies.length >= this.maxEnemies) break;
-      var spawnX = 80 + Math.random() * 640;
-      var spawnY = 80 + Math.random() * 440;
-      var e = new Enemy(this, spawnX, spawnY, this.player, this.enemyBullets, this.pickSpawnEnemyOptions());
-      this.enemies.push(e);
+      this.enemies.push(new Enemy(this, 80 + Math.random()*640, 80 + Math.random()*440, this.player, this.enemyBullets, this.pickSpawnEnemyOptions()));
     }
   }
 
   clearCombatObjects() {
-    for (var i = this.bullets.length - 1; i >= 0; i--) {
-      this.bullets[i].destroy();
-    }
-    this.bullets = [];
-    for (var j = this.enemyBullets.length - 1; j >= 0; j--) {
-      this.enemyBullets[j].destroy();
-    }
-    this.enemyBullets = [];
-    for (var k = this.enemies.length - 1; k >= 0; k--) {
-      this.enemies[k].destroy();
-    }
-    this.enemies = [];
+    this.bullets.forEach(b => b.destroy()); this.bullets = [];
+    this.enemyBullets.forEach(b => b.destroy()); this.enemyBullets = [];
+    this.enemies.forEach(e => e.destroy()); this.enemies = [];
   }
 
   levelUpTo2() {
-    this.currentLevel = 2;
-    this.setupLevel(2);
+    this.currentLevel = 2; this.setupLevel(2);
     this.lastSpawnTime = this.time.now;
     this.clearCombatObjects();
     this.spawnInitialEnemies(4, 5);
@@ -692,80 +597,56 @@ class GameScene extends Phaser.Scene {
   }
 
   levelUpTo3() {
-    this.currentLevel = 3;
-    this.setupLevel(3);
+    this.currentLevel = 3; this.setupLevel(3);
     this.lastSpawnTime = this.time.now;
     this.clearCombatObjects();
     this.spawnInitialEnemies(4, 5);
-    this.level3KillCount = 0;
-    this.bossSpawned = false;
-    this.bossAlive = false;
+    this.level3KillCount = 0; this.bossSpawned = false; this.bossAlive = false;
     this.showLevelBanner(3);
   }
 
   levelUpTo4() {
-    this.currentLevel = 4;
-    this.setupLevel(4);
+    this.currentLevel = 4; this.setupLevel(4);
     this.lastSpawnTime = this.time.now;
     this.clearCombatObjects();
     this.spawnInitialEnemies(4, 5);
-    this.level4BossCount = 0;
-    this.level4BossKills = 0;
-    this.level4Cleared = false;
-    this.bossSpawned = false;
-    this.bossAlive = false;
+    this.level4BossCount = 0; this.level4BossKills = 0;
+    this.level4Cleared = false; this.bossSpawned = false; this.bossAlive = false;
     this.showLevelBanner(4);
   }
 
   spawnBoss() {
-    // 최대 적 수를 절대 넘기지 않음. 자리가 없으면 일반 적 1마리를 제거하고 보스 스폰
     if (this.enemies.length >= this.maxEnemies) {
       for (var i = this.enemies.length - 1; i >= 0; i--) {
         var e = this.enemies[i];
-        if (!e || !e.isBoss) {
-          if (e && e.destroy) e.destroy();
-          this.enemies.splice(i, 1);
-          break;
-        }
+        if (!e || !e.isBoss) { if (e && e.destroy) e.destroy(); this.enemies.splice(i, 1); break; }
       }
       if (this.enemies.length >= this.maxEnemies) return false;
     }
-    var spawnX = 80 + Math.random() * 640;
-    var spawnY = 80 + Math.random() * 440;
-    var boss = new Enemy(this, spawnX, spawnY, this.player, this.enemyBullets, { isBoss: true });
+    var boss = new Enemy(this, 80 + Math.random()*640, 80 + Math.random()*440, this.player, this.enemyBullets, { isBoss: true });
     this.enemies.push(boss);
-    this.bossSpawned = true;
-    this.bossAlive = true;
-    if (this.currentLevel === 4) {
-      this.level4BossCount += 1;
-    }
+    this.bossSpawned = true; this.bossAlive = true;
+    if (this.currentLevel === 4) this.level4BossCount += 1;
     this.showBossAppearBanner();
     return true;
   }
 
+  /* ══════════════════════════════════════
+     업데이트 루프 (기존 로직 유지 + 점수 HUD 갱신)
+  ══════════════════════════════════════ */
   update() {
     if (this.gameOver) return;
     var time = this.time.now;
     this.player.update(this.keys, time);
 
-    // 레벨 전환 조건
-    if (this.currentLevel === 1 && this.score >= this.level2Score) {
-      this.levelUpTo2();
-    }
-    if (this.currentLevel === 2 && this.score >= this.level3Score) {
-      this.levelUpTo3();
-    }
+    if (this.currentLevel === 1 && this.score >= this.level2Score) this.levelUpTo2();
+    if (this.currentLevel === 2 && this.score >= this.level3Score) this.levelUpTo3();
 
-    // 4레벨 진입: 3레벨 보스 격파 직후 (딜레이 후 전환)
     if (this.currentLevel === 3 && this.bossSpawned && !this.bossAlive && !this._pendingLevel4) {
       this._pendingLevel4 = true;
-      this.time.delayedCall(2800, function() {
-        this._pendingLevel4 = false;
-        this.levelUpTo4();
-      }, null, this);
+      this.time.delayedCall(2800, function() { this._pendingLevel4 = false; this.levelUpTo4(); }, null, this);
     }
 
-    // 안전장치: 어떤 이유로든 적이 최대치를 넘으면 즉시 정리
     if (!this.maxEnemies) this.maxEnemies = 4;
     if (this.enemies.length > this.maxEnemies) {
       for (var trim = this.enemies.length - 1; trim >= 0 && this.enemies.length > this.maxEnemies; trim--) {
@@ -781,19 +662,12 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // 3레벨: 3킬 달성 시 보스 스폰
     var waitingBoss = (this.currentLevel === 3 && !this.bossSpawned && this.level3KillCount >= 3);
-    if (waitingBoss) {
-      this.spawnBoss();
-    }
+    if (waitingBoss) this.spawnBoss();
 
-    // 4레벨: 일반 적 3킬 후 첫 번째 보스 스폰
     var waiting4Boss = (this.currentLevel === 4 && !this.bossSpawned && this.level3KillCount >= 3);
-    if (waiting4Boss) {
-      this.spawnBoss();
-    }
+    if (waiting4Boss) this.spawnBoss();
 
-    // 적 스폰 (시작 뒤엔 한 번에 2~3명, 점점 더 빠르게)
     var skipSpawn = waitingBoss || waiting4Boss;
     if (!skipSpawn && time - this.lastSpawnTime >= this.spawnInterval) {
       this.lastSpawnTime = time;
@@ -803,37 +677,26 @@ class GameScene extends Phaser.Scene {
         if (this.enemies.length >= this.maxEnemies) break;
         var side = Math.floor(Math.random() * 4);
         var spawnX, spawnY;
-        if (side === 0) { spawnX = Math.random() * 800; spawnY = -15; }
-        else if (side === 1) { spawnX = 815; spawnY = Math.random() * 600; }
-        else if (side === 2) { spawnX = Math.random() * 800; spawnY = 615; }
-        else { spawnX = -15; spawnY = Math.random() * 600; }
-        var e = new Enemy(this, spawnX, spawnY, this.player, this.enemyBullets, this.pickSpawnEnemyOptions());
-        this.enemies.push(e);
+        if (side === 0) { spawnX = Math.random()*800; spawnY = -15; }
+        else if (side === 1) { spawnX = 815; spawnY = Math.random()*600; }
+        else if (side === 2) { spawnX = Math.random()*800; spawnY = 615; }
+        else { spawnX = -15; spawnY = Math.random()*600; }
+        this.enemies.push(new Enemy(this, spawnX, spawnY, this.player, this.enemyBullets, this.pickSpawnEnemyOptions()));
       }
     }
 
-    // 적 업데이트 (이동 + 총알 발사)
-    for (var i = 0; i < this.enemies.length; i++) {
-      this.enemies[i].update(time);
-    }
+    for (var i = 0; i < this.enemies.length; i++) this.enemies[i].update(time);
 
-    // 화면 밖으로 나간 플레이어 총알 제거 + 적과 충돌 시 데미지
     for (var i = this.bullets.length - 1; i >= 0; i--) {
       var b = this.bullets[i];
       var x = b.x, y = b.y;
-      if (x < -20 || x > 820 || y < -20 || y > 620) {
-        b.destroy();
-        this.bullets.splice(i, 1);
-        continue;
-      }
+      if (x < -20 || x > 820 || y < -20 || y > 620) { b.destroy(); this.bullets.splice(i, 1); continue; }
       for (var j = this.enemies.length - 1; j >= 0; j--) {
         var e = this.enemies[j];
-        var dist = Phaser.Math.Distance.Between(x, y, e.x, e.y);
-        if (dist < 22) {
+        if (Phaser.Math.Distance.Between(x, y, e.x, e.y) < 22) {
           this.playHitEffect(e.x, e.y);
           this.playImpactFlash(e.x, e.y, 0xffe08a, 11, 0.0012);
-          b.destroy();
-          this.bullets.splice(i, 1);
+          b.destroy(); this.bullets.splice(i, 1);
           if (e.takeDamage(1)) {
             var wasBoss = !!e.isBoss;
             this.enemies.splice(j, 1);
@@ -841,75 +704,42 @@ class GameScene extends Phaser.Scene {
             this.playDeathEffect(e.x, e.y);
             if (wasBoss) this.showBossDefeatBanner();
             this.score += 10;
-            this.scoreText.setText('점수: ' + this.score);
+            this._updateScoreHUD();
 
-            // 3레벨 킬 카운트
             if (this.currentLevel === 3 && !wasBoss) {
               this.level3KillCount += 1;
-              if (!this.bossSpawned && this.level3KillCount >= 3) {
-                this.spawnBoss();
-              }
+              if (!this.bossSpawned && this.level3KillCount >= 3) this.spawnBoss();
             }
-
-            // 4레벨 보스 처치 처리
             if (this.currentLevel === 4 && wasBoss) {
               this.level4BossKills += 1;
-              // 첫 번째 보스 처치 후 두 번째 보스 스폰 (아직 2마리 안 됐으면)
               if (this.level4BossCount < 2) {
-                this.time.delayedCall(1500, function() {
-                  if (!this.gameOver) this.spawnBoss();
-                }, null, this);
+                this.time.delayedCall(1500, function() { if (!this.gameOver) this.spawnBoss(); }, null, this);
               }
-              // 보스 2마리 모두 처치 → 최종 클리어
               if (this.level4BossKills >= 2 && !this.level4Cleared) {
                 this.level4Cleared = true;
-                this.time.delayedCall(800, function() {
-                  this.showFinalClearBanner();
-                }, null, this);
+                this.time.delayedCall(800, function() { this.showFinalClearBanner(); }, null, this);
               }
             }
-
-            // 4레벨 일반 적 킬 카운트 (보스 스폰 트리거)
-            if (this.currentLevel === 4 && !wasBoss && !this.bossSpawned) {
-              this.level3KillCount += 1;
-            }
+            if (this.currentLevel === 4 && !wasBoss && !this.bossSpawned) this.level3KillCount += 1;
           }
           break;
         }
       }
     }
 
-    // 화면 밖으로 나간 적 총알 제거
     for (var i = this.enemyBullets.length - 1; i >= 0; i--) {
       var eb = this.enemyBullets[i];
-      var ex = eb.x, ey = eb.y;
-      if (ex < -20 || ex > 820 || ey < -20 || ey > 620) {
-        eb.destroy();
-        this.enemyBullets.splice(i, 1);
-      }
+      if (eb.x < -20 || eb.x > 820 || eb.y < -20 || eb.y > 620) { eb.destroy(); this.enemyBullets.splice(i, 1); }
     }
 
-    // 플레이어와 적 총알 충돌 → 플레이어 데미지, 사망 시 팝업
     for (var i = this.enemyBullets.length - 1; i >= 0; i--) {
       var eb = this.enemyBullets[i];
-      var dist = Phaser.Math.Distance.Between(this.player.rect.x, this.player.rect.y, eb.x, eb.y);
-      if (dist < 24) {
-        var hx = eb.x;
-        var hy = eb.y;
-        if (eb.explosive) {
-          this.playRocketExplosion(hx, hy);
-        } else {
-          this.playHitEffect(this.player.rect.x, this.player.rect.y);
-          this.playImpactFlash(this.player.rect.x, this.player.rect.y, 0x60a5fa, 13, 0.0022);
-        }
-        eb.destroy();
-        this.enemyBullets.splice(i, 1);
+      if (Phaser.Math.Distance.Between(this.player.rect.x, this.player.rect.y, eb.x, eb.y) < 24) {
+        if (eb.explosive) this.playRocketExplosion(eb.x, eb.y);
+        else { this.playHitEffect(this.player.rect.x, this.player.rect.y); this.playImpactFlash(this.player.rect.x, this.player.rect.y, 0x60a5fa, 13, 0.0022); }
         var dmg = eb.damage || 1;
-        if (this.player.takeDamage(dmg)) {
-          this.player.destroy();
-          this.showDeathPopup();
-          return;
-        }
+        eb.destroy(); this.enemyBullets.splice(i, 1);
+        if (this.player.takeDamage(dmg)) { this.player.destroy(); this.showDeathPopup(); return; }
       }
     }
   }
