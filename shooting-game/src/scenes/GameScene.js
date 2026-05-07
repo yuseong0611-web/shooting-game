@@ -81,8 +81,15 @@ class GameScene extends Phaser.Scene {
   ══════════════════════════════════════ */
   preload() {
     if (typeof window !== 'undefined') {
+      var selectedCharacter = (window.SELECTION && window.SELECTION.character) || 'normal';
+      var playerMap = {
+        normal: ['player_survivor1', 'player_survivor1_reload'],
+        fast: ['player_man_blue', 'player_man_blue_reload'],
+        tank: ['player_soldier1', 'player_soldier1_reload']
+      };
+      var chosenPlayer = playerMap[selectedCharacter] || playerMap.normal;
       window.GAME_TEXTURES = {
-        player: 'player_survivor1', playerReload: 'player_survivor1_reload',
+        player: chosenPlayer[0], playerReload: chosenPlayer[1],
         enemy: 'enemy_zombie1_hold', enemyReload: 'enemy_zombie1_reload',
         enemyFrames: ['enemy_zombie1_stand','enemy_zombie1_hold','enemy_zombie1_gun','enemy_zombie1_machine','enemy_zombie1_reload','enemy_zombie1_silencer'],
         robot: 'enemy_robot1_hold', robotReload: 'enemy_robot1_reload',
@@ -91,6 +98,10 @@ class GameScene extends Phaser.Scene {
     }
     this.load.image('player_survivor1',         'kenney_top-down-shooter/PNG/Survivor 1/survivor1_gun.png');
     this.load.image('player_survivor1_reload',  'kenney_top-down-shooter/PNG/Survivor 1/survivor1_reload.png');
+    this.load.image('player_man_blue',          'kenney_top-down-shooter/PNG/Man Blue/manBlue_gun.png');
+    this.load.image('player_man_blue_reload',   'kenney_top-down-shooter/PNG/Man Blue/manBlue_reload.png');
+    this.load.image('player_soldier1',          'kenney_top-down-shooter/PNG/Soldier 1/soldier1_gun.png');
+    this.load.image('player_soldier1_reload',   'kenney_top-down-shooter/PNG/Soldier 1/soldier1_reload.png');
     this.load.image('enemy_zombie1_stand',      'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_stand.png');
     this.load.image('enemy_zombie1_hold',       'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_hold.png');
     this.load.image('enemy_zombie1_gun',        'kenney_top-down-shooter/PNG/Zombie 1/zoimbie1_gun.png');
@@ -113,6 +124,8 @@ class GameScene extends Phaser.Scene {
   create(data) {
     this.gameOver = false;
     this.score = 0;
+    this.runKills = 0;
+    this.runCoins = 0;
     this.currentLevel = (data && data.level) ? data.level : 1;
     this.level2Score = 80;
     this.level3Score = 150;
@@ -127,6 +140,7 @@ class GameScene extends Phaser.Scene {
     this.level4Cleared = false;
     this._pendingLevel4 = false;
 
+    if (typeof syncSelectionFromSave === 'function') syncSelectionFromSave();
     var sel = (typeof window !== 'undefined' && window.SELECTION) || { character: 'normal', abilities: [] };
 
     // 배경
@@ -179,7 +193,17 @@ class GameScene extends Phaser.Scene {
       for (var s = 0; s < shots.length; s++) {
         var sx = px + shots[s].dx * 22;
         var sy = py + shots[s].dy * 22;
-        self.bullets.push(new Bullet(self, sx, sy, shots[s].dx, shots[s].dy, self.bulletSpeed));
+        var effect = null;
+        var bulletColor = 0xffff00;
+        if (sel.abilities && sel.abilities.indexOf('iceBullet') >= 0) {
+          effect = 'ice';
+          bulletColor = 0x7dd3fc;
+        }
+        if (sel.abilities && sel.abilities.indexOf('poisonBullet') >= 0) {
+          effect = effect ? 'icePoison' : 'poison';
+          bulletColor = effect === 'icePoison' ? 0xb8ffda : 0x8cff66;
+        }
+        self.bullets.push(new Bullet(self, sx, sy, shots[s].dx, shots[s].dy, self.bulletSpeed, bulletColor, 1, { effect: effect }));
       }
       self.player.registerShot(self.time.now);
     });
@@ -224,6 +248,11 @@ class GameScene extends Phaser.Scene {
       fontSize: '16px', color: '#00d4ff', letterSpacing: 2,
     }).setDepth(500).setScrollFactor(0);
 
+    this._coinValueTxt = this.add.text(W - 300, 22, '+0 COIN', {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '12px', color: '#ffd700', letterSpacing: 2,
+    }).setDepth(500).setScrollFactor(0);
+
     /* 레벨 표시 (중앙) */
     this._levelLabelTxt = this.add.text(W / 2, 10, 'LEVEL', {
       fontFamily: '"Share Tech Mono", "Courier New", monospace',
@@ -258,6 +287,23 @@ class GameScene extends Phaser.Scene {
       this._levelValueTxt.setText(String(this.currentLevel).padStart(2, '0'));
       this._levelValueTxt.setStyle({ color: lvColors[this.currentLevel] || '#ffffff' });
     }
+    if (this._coinValueTxt) this._coinValueTxt.setText('+' + this.runCoins + ' COIN');
+  }
+
+  _awardKill(wasBoss, x, y) {
+    var killUnits = wasBoss ? 5 : 1;
+    this.runKills += killUnits;
+    var gained = typeof addCoinsForKills === 'function' ? addCoinsForKills(killUnits) : killUnits * 3;
+    this.runCoins += gained;
+    this._updateScoreHUD();
+    var txt = this.add.text(x || 400, y || 300, '+' + gained + ' COIN', {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '11px',
+      color: '#ffd700',
+      letterSpacing: 2
+    }).setDepth(550);
+    this.tweens.add({ targets: txt, alpha: 0, y: (y || 300) - 24, duration: 700, onComplete: function() { txt.destroy(); } });
+    return txt;
   }
 
   /* ══════════════════════════════════════
@@ -313,11 +359,16 @@ class GameScene extends Phaser.Scene {
       fontSize: '14px', color: '#ffaa00', letterSpacing: 3,
     }).setOrigin(0.5).setDepth(602).setScrollFactor(0);
 
+    this.add.text(cx, cy + 2, 'KILLS ' + this.runKills + '   COINS +' + this.runCoins, {
+      fontFamily: '"Share Tech Mono", "Courier New", monospace',
+      fontSize: '12px', color: '#ffd700', letterSpacing: 2,
+    }).setOrigin(0.5).setDepth(602).setScrollFactor(0);
+
     // 메시지
     var msgText = this.currentLevel >= 2
       ? 'LEVEL ' + this.currentLevel + ' — RETURNING TO BASE FROM LEVEL 1'
       : 'RETRY MISSION?';
-    this.add.text(cx, cy + 14, msgText, {
+    this.add.text(cx, cy + 24, msgText, {
       fontFamily: '"Share Tech Mono", "Courier New", monospace',
       fontSize: '11px', color: '#556677', letterSpacing: 2,
     }).setOrigin(0.5).setDepth(602).setScrollFactor(0);
@@ -635,6 +686,35 @@ class GameScene extends Phaser.Scene {
   /* ══════════════════════════════════════
      업데이트 루프 (기존 로직 유지 + 점수 HUD 갱신)
   ══════════════════════════════════════ */
+  handleEnemyDefeated(enemy, index) {
+    if (!enemy) return;
+    var wasBoss = !!enemy.isBoss;
+    var deathX = enemy.x;
+    var deathY = enemy.y;
+    if (index >= 0) this.enemies.splice(index, 1);
+    if (wasBoss) this.bossAlive = false;
+    this.playDeathEffect(deathX, deathY);
+    if (wasBoss) this.showBossDefeatBanner();
+    this.score += wasBoss ? 50 : 10;
+    this._awardKill(wasBoss, deathX, deathY);
+
+    if (this.currentLevel === 3 && !wasBoss) {
+      this.level3KillCount += 1;
+      if (!this.bossSpawned && this.level3KillCount >= 3) this.spawnBoss();
+    }
+    if (this.currentLevel === 4 && wasBoss) {
+      this.level4BossKills += 1;
+      if (this.level4BossCount < 2) {
+        this.time.delayedCall(1500, function() { if (!this.gameOver) this.spawnBoss(); }, null, this);
+      }
+      if (this.level4BossKills >= 2 && !this.level4Cleared) {
+        this.level4Cleared = true;
+        this.time.delayedCall(800, function() { this.showFinalClearBanner(); }, null, this);
+      }
+    }
+    if (this.currentLevel === 4 && !wasBoss && !this.bossSpawned) this.level3KillCount += 1;
+  }
+
   update() {
     if (this.gameOver) return;
     var time = this.time.now;
@@ -686,7 +766,10 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    for (var i = 0; i < this.enemies.length; i++) this.enemies[i].update(time);
+    for (var i = this.enemies.length - 1; i >= 0; i--) {
+      this.enemies[i].update(time);
+      if (this.enemies[i] && this.enemies[i].dead) this.handleEnemyDefeated(this.enemies[i], i);
+    }
 
     for (var i = this.bullets.length - 1; i >= 0; i--) {
       var b = this.bullets[i];
@@ -698,30 +781,10 @@ class GameScene extends Phaser.Scene {
           this.playHitEffect(e.x, e.y);
           this.playImpactFlash(e.x, e.y, 0xffe08a, 11, 0.0012);
           b.destroy(); this.bullets.splice(i, 1);
+          if (b.effect === 'ice' || b.effect === 'icePoison') e.applySlow(3000, 0.45);
+          if (b.effect === 'poison' || b.effect === 'icePoison') e.applyPoison();
           if (e.takeDamage(1)) {
-            var wasBoss = !!e.isBoss;
-            this.enemies.splice(j, 1);
-            if (wasBoss) this.bossAlive = false;
-            this.playDeathEffect(e.x, e.y);
-            if (wasBoss) this.showBossDefeatBanner();
-            this.score += 10;
-            this._updateScoreHUD();
-
-            if (this.currentLevel === 3 && !wasBoss) {
-              this.level3KillCount += 1;
-              if (!this.bossSpawned && this.level3KillCount >= 3) this.spawnBoss();
-            }
-            if (this.currentLevel === 4 && wasBoss) {
-              this.level4BossKills += 1;
-              if (this.level4BossCount < 2) {
-                this.time.delayedCall(1500, function() { if (!this.gameOver) this.spawnBoss(); }, null, this);
-              }
-              if (this.level4BossKills >= 2 && !this.level4Cleared) {
-                this.level4Cleared = true;
-                this.time.delayedCall(800, function() { this.showFinalClearBanner(); }, null, this);
-              }
-            }
-            if (this.currentLevel === 4 && !wasBoss && !this.bossSpawned) this.level3KillCount += 1;
+            this.handleEnemyDefeated(e, j);
           }
           break;
         }

@@ -11,6 +11,7 @@ class Enemy {
     this.enemyType = this.isBoss ? 'zombie' : (this.options.enemyType === 'robot' ? 'robot' : 'zombie');
 
     this.speed = 70;
+    this.baseSpeed = this.speed;
     this.shootInterval = 1500;
     this.lastShotTime = 0;
     this.bulletSpeed = 280;
@@ -23,6 +24,11 @@ class Enemy {
     this.hp = this.maxHp;
     this.bulletDamage = this.isBoss ? 0 : 1;
     this.robotBulletDamage = 2;
+    this.slowUntil = 0;
+    this.slowFactor = 1;
+    this.poisonUntil = 0;
+    this.nextPoisonTick = 0;
+    this.dead = false;
 
     var GT = (typeof window !== 'undefined' && window.GAME_TEXTURES) || {};
     var enemyTexture = '';
@@ -40,6 +46,7 @@ class Enemy {
       this.hp = 4;
       this.shootInterval = 2500;
       this.bulletSpeed = 240;
+      this.baseSpeed = this.speed;
       var bossDmg = Math.max(1, Math.ceil(this.player.maxHp / 3));
       var desired = Math.max(2, Math.floor(bossDmg * 0.55));
       this.robotBulletDamage = bossDmg > 1 ? Math.min(bossDmg - 1, desired) : 1;
@@ -73,8 +80,8 @@ class Enemy {
     this._drawHpBar();
   }
 
-  get x() { return this.rect.x; }
-  get y() { return this.rect.y; }
+  get x() { return this.rect ? this.rect.x : (this.deathX || 0); }
+  get y() { return this.rect ? this.rect.y : (this.deathY || 0); }
 
   _drawHpBar() {
     const gfx = this._hpGfx;
@@ -167,8 +174,12 @@ class Enemy {
   }
 
   takeDamage(amount) {
+    if (this.dead) return true;
     this.hp = Math.max(0, this.hp - amount);
     if (this.hp <= 0) {
+      this.deathX = this.x;
+      this.deathY = this.y;
+      this.dead = true;
       this.destroy();
       return true;
     }
@@ -176,7 +187,43 @@ class Enemy {
     return false;
   }
 
+  applySlow(durationMs, factor) {
+    var now = this.scene.time.now || 0;
+    this.slowUntil = Math.max(this.slowUntil || 0, now + durationMs);
+    this.slowFactor = Math.min(this.slowFactor || 1, factor || 0.5);
+    if (this.rect && this.rect.setTint) this.rect.setTint(0x9bdcff);
+  }
+
+  applyPoison() {
+    var now = this.scene.time.now || 0;
+    this.applySlow(1000, 0.55);
+    this.poisonUntil = Math.max(this.poisonUntil || 0, now + 6000);
+    this.nextPoisonTick = now + 3000;
+    if (this.rect && this.rect.setTint) this.rect.setTint(0x8cff66);
+  }
+
+  _updateStatusEffects(time) {
+    if (this.dead) return;
+    if (this.poisonUntil && time <= this.poisonUntil && time >= this.nextPoisonTick) {
+      this.nextPoisonTick += 3000;
+      if (this.takeDamage(1)) return;
+      if (this.scene.playImpactFlash) this.scene.playImpactFlash(this.x, this.y, 0x8cff66, 10, 0.0008);
+    }
+    if (this.poisonUntil && time > this.poisonUntil) {
+      this.poisonUntil = 0;
+      this.nextPoisonTick = 0;
+    }
+    if (this.slowUntil && time > this.slowUntil) {
+      this.slowUntil = 0;
+      this.slowFactor = 1;
+      if (!this.poisonUntil && this.rect && this.rect.clearTint) this.rect.clearTint();
+    }
+  }
+
   update(time) {
+    if (this.dead) return;
+    this._updateStatusEffects(time);
+    if (this.dead) return;
     var ex = this.rect.x;
     var ey = this.rect.y;
     var px = this.player.rect.x;
@@ -191,8 +238,9 @@ class Enemy {
 
     this.rect.rotation = Math.atan2(py - ey, px - ex);
 
-    var vx = Math.cos(this.moveAngle) * this.speed;
-    var vy = Math.sin(this.moveAngle) * this.speed;
+    var activeSpeed = this.speed * ((this.slowUntil && time <= this.slowUntil) ? this.slowFactor : 1);
+    var vx = Math.cos(this.moveAngle) * activeSpeed;
+    var vy = Math.sin(this.moveAngle) * activeSpeed;
     this.body.setVelocity(vx, vy);
 
     if (this.isReloading && time >= this.reloadEndTime) {
@@ -240,6 +288,9 @@ class Enemy {
   }
 
   destroy() {
+    if (this._destroyed) return;
+    this._destroyed = true;
+    this.dead = true;
     this.rect.destroy();
     if (this._hpGfx) this._hpGfx.destroy();
     if (this._bossLabel) this._bossLabel.destroy();

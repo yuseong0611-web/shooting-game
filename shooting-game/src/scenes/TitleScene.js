@@ -85,7 +85,9 @@ class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     /* ── 시작 버튼 ─────────────────────────────── */
+    if (typeof syncSelectionFromSave === 'function') syncSelectionFromSave();
     this._buildStartButton(W, H);
+    this._buildTitleNavButtons(W, H);
 
     /* ── 하단 정보 ─────────────────────────────── */
     this._drawFooter(W, H);
@@ -267,6 +269,38 @@ class TitleScene extends Phaser.Scene {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
+  }
+
+  _buildTitleNavButtons(W, H) {
+    this._titleButton(W / 2 - 145, 525, 250, 40, 'CHARACTER SETUP', 0x00ffaa, () => {
+      if (typeof syncSelectionFromSave === 'function') syncSelectionFromSave();
+      this.scene.start('CharacterSelectScene');
+    });
+    this._titleButton(W / 2 + 145, 525, 210, 40, 'SHOP', 0xffd700, () => {
+      this.scene.start('ShopScene');
+    });
+  }
+
+  _titleButton(bx, by, bw, bh, label, color, onClick) {
+    const bg = this.add.graphics();
+    const draw = (hover) => {
+      bg.clear();
+      bg.fillStyle(color, hover ? 0.2 : 0.09);
+      bg.fillRect(bx - bw / 2, by - bh / 2, bw, bh);
+      bg.lineStyle(1, color, hover ? 1 : 0.65);
+      bg.strokeRect(bx - bw / 2, by - bh / 2, bw, bh);
+    };
+    draw(false);
+    const txt = this.add.text(bx, by, label, {
+      fontFamily: '"Orbitron", "Courier New", monospace',
+      fontSize: '12px',
+      color: '#ffffff',
+      letterSpacing: 3,
+    }).setOrigin(0.5);
+    const hit = this.add.rectangle(bx, by, bw, bh).setInteractive({ useHandCursor: true });
+    hit.on('pointerover', () => { draw(true); txt.setColor('#ffffff'); });
+    hit.on('pointerout', () => { draw(false); });
+    hit.on('pointerdown', onClick);
   }
 
   _drawFooter(W, H) {

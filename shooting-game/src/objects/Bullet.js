@@ -8,6 +8,7 @@ class Bullet {
     this.damage = damage || 1;
     this.bulletOptions = bulletOptions || {};
     this.explosive = !!this.bulletOptions.explosive;
+    this.effect = this.bulletOptions.effect || null;
 
     if (scene.textures && scene.textures.exists('bullet')) {
       var angle = Math.atan2(dirY, dirX);

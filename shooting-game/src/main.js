@@ -9,7 +9,7 @@ var config = {
     default: 'arcade',
     arcade: { debug: false }
   },
-  scene: [TitleScene, CharacterSelectScene, GameScene]
+  scene: [TitleScene, ShopScene, CharacterSelectScene, GameScene]
 };
 
 var game = new Phaser.Game(config);
