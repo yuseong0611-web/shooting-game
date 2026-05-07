@@ -104,6 +104,7 @@ class GameScene extends Phaser.Scene {
     this.load.image('enemy_robot1_reload',      'kenney_top-down-shooter/PNG/Robot 1/robot1_reload.png');
     this.load.image('enemy_robot1_silencer',    'kenney_top-down-shooter/PNG/Robot 1/robot1_silencer.png');
     this.load.image('game_bg', 'Background.png');
+    this.load.image('bullet', 'assets/bullet.png');
   }
 
   /* ══════════════════════════════════════

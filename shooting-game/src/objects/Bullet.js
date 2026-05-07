@@ -9,9 +9,18 @@ class Bullet {
     this.bulletOptions = bulletOptions || {};
     this.explosive = !!this.bulletOptions.explosive;
 
-    var radius = this.explosive ? 9 : 6;
-    this.graphic = scene.add.circle(x, y, radius, this.color);
-    scene.physics.add.existing(this.graphic);
+    if (scene.textures && scene.textures.exists('bullet')) {
+      var angle = Math.atan2(dirY, dirX);
+      this.graphic = scene.physics.add.image(x, y, 'bullet');
+      this.graphic.setDisplaySize(this.explosive ? 34 : 28, this.explosive ? 10 : 7);
+      this.graphic.setRotation(angle);
+      this.graphic.setDepth(80);
+      if (this.color !== 0xffff00 && this.graphic.setTint) this.graphic.setTint(this.color);
+    } else {
+      var radius = this.explosive ? 9 : 6;
+      this.graphic = scene.add.circle(x, y, radius, this.color);
+      scene.physics.add.existing(this.graphic);
+    }
     this.body = this.graphic.body;
 
     this.body.setVelocity(dirX * this.speed, dirY * this.speed);
